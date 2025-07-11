@@ -18,11 +18,6 @@ type Booking = {
     }
 }
 
-type DayBookings = {
-    date: Date
-    bookings: Booking[]
-}
-
 export default function BookingsPage() {
     const today = new Date()
     const [currentDate, setCurrentDate] = useState(today)

@@ -1,7 +1,7 @@
 "use client"
 import AdminHeader from "@/components/admin/AdminHeader"
 import MobileNav from "@/components/admin/MobileNav"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { FiArrowLeft, FiUsers, FiClock } from "react-icons/fi"
 import { useRouter, useSearchParams } from "next/navigation"
 
@@ -17,7 +17,7 @@ type Package = {
     price: string
 }
 
-export default function DailyPackagesPage() {
+function DailyPackagesContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [activeTab, setActiveTab] = useState<"tours" | "transfers">("tours")
@@ -316,5 +316,43 @@ function PackageCard({ package: pkg }: { package: Package }) {
                 </div>
             </div>
         </div>
+    )
+}
+
+// Loading fallback component
+function DailyPackagesLoading() {
+    return (
+        <div className="min-h-screen bg-gray-50 pb-16">
+            <AdminHeader />
+            <main className="p-4">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                    <div>
+                        <div className="w-32 h-6 bg-gray-200 rounded animate-pulse mb-1"></div>
+                        <div className="w-48 h-4 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                    <div className="animate-pulse">
+                        <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+                        <div className="space-y-3">
+                            <div className="h-4 bg-gray-200 rounded"></div>
+                            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                            <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            <MobileNav />
+        </div>
+    )
+}
+
+// Main component with Suspense boundary
+export default function DailyPackagesPage() {
+    return (
+        <Suspense fallback={<DailyPackagesLoading />}>
+            <DailyPackagesContent />
+        </Suspense>
     )
 }

@@ -241,7 +241,7 @@ export default function BookingHistoryPage() {
                     />
                     {searchQuery && (
                         <div className="text-xs text-light mt-1 ml-10">
-                            Try: "Jul 5", "5/7", "2025-07-05", or customer name
+                            Try: &quot;Jul 5&quot;, &quot;5/7&quot;, &quot;2025-07-05&quot;, or customer name
                         </div>
                     )}
                 </div>
@@ -321,32 +321,6 @@ function HistoryBookingCard({ booking }: { booking: HistoryBooking }) {
             day: "numeric",
             year: "numeric",
         })
-    }
-
-    const getStatusStyle = (status: string) => {
-        switch (status) {
-            case "completed":
-                return "bg-green-100 text-green-800"
-            case "cancelled":
-                return "bg-red-100 text-red-800"
-            case "no-show":
-                return "bg-yellow-100 text-yellow-800"
-            default:
-                return "bg-gray-100 text-gray-800"
-        }
-    }
-
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case "completed":
-                return "Completed"
-            case "cancelled":
-                return "Cancelled"
-            case "no-show":
-                return "No Show"
-            default:
-                return status
-        }
     }
 
     return (
