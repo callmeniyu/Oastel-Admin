@@ -16,6 +16,8 @@ type Booking = {
         adults: number
         children?: number
     }
+    pickupLocation?: string
+    phone?: string
 }
 
 export default function BookingsPage() {
@@ -36,6 +38,8 @@ export default function BookingsPage() {
                 time: "08:30 AM",
                 user: "Alex Cooper",
                 persons: { adults: 2, children: 1 },
+                pickupLocation: "Tanah Rata",
+                phone: "012-3456789",
             },
             {
                 id: "BK002",
@@ -44,6 +48,8 @@ export default function BookingsPage() {
                 time: "02:00 PM",
                 user: "Sarah Lim",
                 persons: { adults: 3 },
+                pickupLocation: "Tanah Rata",
+                phone: "012-3456789",
             },
             {
                 id: "BK003",
@@ -52,6 +58,8 @@ export default function BookingsPage() {
                 time: "05:00 AM",
                 user: "Raj Patel",
                 persons: { adults: 4 },
+                pickupLocation: "Tanah Rata",
+                phone: "012-3456789",
             },
         ],
         // Tomorrow's bookings
@@ -63,6 +71,8 @@ export default function BookingsPage() {
                 time: "09:00 AM",
                 user: "Emma Watson",
                 persons: { adults: 2 },
+                pickupLocation: "Tanah Rata",
+                phone: "012-3456789",
             },
         ],
         // Day after tomorrow
@@ -74,6 +84,8 @@ export default function BookingsPage() {
                 time: "11:00 AM",
                 user: "John Doe",
                 persons: { adults: 1, children: 2 },
+                pickupLocation: "Tanah Rata",
+                phone: "012-3456789",
             },
             {
                 id: "BK006",
@@ -82,6 +94,8 @@ export default function BookingsPage() {
                 time: "10:30 AM",
                 user: "Lisa Ray",
                 persons: { adults: 3 },
+                pickupLocation: "Tanah Rata",
+                phone: "012-3456789",
             },
         ],
     }
@@ -301,18 +315,33 @@ export default function BookingsPage() {
 function BookingCard({ booking }: { booking: Booking }) {
     return (
         <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
-            <div className="flex justify-between items-start">
-                <div>
+            <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
                     <h3 className="font-medium">{booking.user}</h3>
                     <p className="text-sm text-light">{booking.title}</p>
                 </div>
                 <span className="text-sm text-light">{booking.time}</span>
             </div>
-            <div className="mt-2 text-sm text-light">
-                {booking.persons.adults} adult{booking.persons.adults !== 1 ? "s" : ""}
-                {booking.persons.children
-                    ? `, ${booking.persons.children} child${booking.persons.children !== 1 ? "ren" : ""}`
-                    : ""}
+
+            <div className="space-y-1">
+                <div className="text-sm text-light">
+                    {booking.persons.adults} adult{booking.persons.adults !== 1 ? "s" : ""}
+                    {booking.persons.children
+                        ? `, ${booking.persons.children} child${booking.persons.children !== 1 ? "ren" : ""}`
+                        : ""}
+                </div>
+
+                {booking.pickupLocation && (
+                    <div className="text-sm text-light">
+                        <span className="font-medium">Pickup:</span> {booking.pickupLocation}
+                    </div>
+                )}
+
+                {booking.phone && (
+                    <div className="text-sm text-light">
+                        <span className="font-medium">Phone:</span> {booking.phone}
+                    </div>
+                )}
             </div>
         </div>
     )

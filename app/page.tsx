@@ -8,7 +8,7 @@ export default function DashboardPage() {
     { title: 'Total Bookings', value: '342', change: '+12%', icon: '📊' },
     { title: 'Active Tours', value: '14', change: '+2', icon: '🚗' },
     { title: 'Pending Requests', value: '23', change: '-5', icon: '⏱️' },
-    { title: 'Revenue', value: 'RM 24,589', change: '+8.5%', icon: '💰' },
+    { title: 'Revenue', value: 'RM 24,589', change: '+8.5%', icon: '💰', link:"revenue" },
   ];
 
   const recentBookings = [
@@ -34,6 +34,7 @@ export default function DashboardPage() {
                 value={stat.value}
                 change={stat.change}
                 icon={stat.icon}
+                link=''
               />
             ))}
           </div>
