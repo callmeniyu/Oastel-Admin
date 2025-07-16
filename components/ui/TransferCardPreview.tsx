@@ -1,10 +1,11 @@
 import Image from "next/image"
 import { MdAccessTimeFilled } from "react-icons/md"
 import { FaBookmark } from "react-icons/fa"
-import { formatNumber } from "@/lib/utils"
+import { FiMapPin } from "react-icons/fi"
+import { IoFlagSharp } from "react-icons/io5"
 
-type TourCardProps = {
-    id: number
+type TransferCardProps = {
+    _id: string
     slug: string
     image: string
     title: string
@@ -15,11 +16,13 @@ type TourCardProps = {
     oldPrice: number
     newPrice: number
     type: string
-    label?: string | null
+    from: string
+    to: string
+    label?: "Recommended" | "Popular" | "Best Value" | null
 }
 
-export default function TourCardPreview({
-    id,
+export default function TransferCard({
+    _id,
     slug,
     image,
     title,
@@ -30,8 +33,10 @@ export default function TourCardPreview({
     oldPrice,
     newPrice,
     type,
+    from,
+    to,
     label,
-}: TourCardProps) {
+}: TransferCardProps) {
     // Label styling based on type
     const getLabelStyles = (labelType: string) => {
         switch (labelType) {
@@ -46,7 +51,7 @@ export default function TourCardPreview({
         }
     }
     return (
-        <div className="rounded-xl shadow-lg bg-white flex flex-col justify-between max-h-max relative">
+        <div className="rounded-xl shadow-lg bg-white flex flex-col flex-grow justify-between relative">
             {/* Label Badge */}
             {label && (
                 <div
@@ -59,7 +64,7 @@ export default function TourCardPreview({
             )}
             <Image src={image} alt={title} width={400} height={400} className="h-48 w-full object-cover rounded-t-lg" />
             <div className="p-4 flex flex-col justify-between gap-2 self-start">
-                <h3 className="text-primary font-semibold font-poppins text-base">{title}</h3>
+                <h3 className="text-primary_green font-semibold font-poppins text-base">{title}</h3>
                 <div className="flex gap-2">
                     {tags.map((tag, i) => (
                         <span key={i} className="bg-[#E6F1EE] text-primary px-2 py-1 rounded-md text-xs font-medium">
@@ -67,15 +72,27 @@ export default function TourCardPreview({
                         </span>
                     ))}
                 </div>
-                <p className="text-gray-500 text-sm font-poppins">{desc}</p>
-                <div className="flex justify-between gap-2">
-                    <div className="flex gap-2 items-center font-semibold">
-                        <MdAccessTimeFilled width={30} className="text-primary text-lg" />
-                        <p className="text-sm">{duration} hrs</p>
+                <p className="text-desc_gray text-sm font-poppins">{desc}</p>
+                <div className="flex justify-between">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-2 items-center font-semibold">
+                            <FiMapPin width={30} className="text-primary_green text-md" />
+                            <p className="text-sm">{from}</p>
+                        </div>
+                        <div className="flex gap-2 items-center font-semibold">
+                            <IoFlagSharp width={30} className="text-primary_green text-md" />
+                            <p className="text-sm">{to}</p>
+                        </div>
                     </div>
-                    <div className="flex gap-2 items-center font-semibold">
-                        <FaBookmark width={30} className="text-primary text-md" />
-                        <p className="text-sm">{formatNumber(Number(bookedCount))}+ Booked</p>
+                    <div className="flex flex-col justify-between gap-2">
+                        <div className="flex gap-2 items-center font-semibold">
+                            <FaBookmark width={30} className="text-primary_green text-md" />
+                            <p className="text-sm">{bookedCount}+ Booked</p>
+                        </div>
+                        <div className="flex gap-2 items-center font-semibold">
+                            <MdAccessTimeFilled width={30} className="text-primary_green text-lg" />
+                            <p className="text-sm">{duration} hrs</p>
+                        </div>
                     </div>
                 </div>
                 <div className="flex justify-between items-center mt-2">
@@ -91,8 +108,7 @@ export default function TourCardPreview({
                         className="bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md w-24 transition-colors"
                     >
                         Book
-                    </button>
-                </div>
+                    </button>                </div>
             </div>
         </div>
     )

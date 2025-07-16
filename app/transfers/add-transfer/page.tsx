@@ -11,19 +11,20 @@ import {
     FiUpload,
     FiImage,
     FiChevronDown,
+    FiMapPin,
     FiCheck,
 } from "react-icons/fi"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, Controller, useFieldArray } from "react-hook-form"
 import { toast } from "react-hot-toast"
+import TransferCardPreview from "@/components/TransferCardPreview"
 import RichTextEditor from "@/components/RichTextEditor"
-import TourCardPreview from "@/components/TourCardPreview"
 import Confirmation from "@/components/ui/Confirmation"
 import { generateSlug, debounce } from "@/lib/utils"
 
 // Schema validation
-const tourSchema = z
+const transferSchema = z
     .object({
         title: z.string().min(20, "Title must be at least 20 characters").max(100, "Title cannot exceed 100 characters"),
         slug: z
@@ -37,7 +38,9 @@ const tourSchema = z
             .string()
             .min(50, "Description must be at least 50 characters")
             .max(110, "Description cannot exceed 110 characters"),
-        type: z.enum(["co-tour", "private"]),
+        type: z.enum(["Van", "Van+Ferry", "Private"]),
+        from: z.string().min(2, "From location is required"),
+        to: z.string().min(2, "To location is required"),
         duration: z.string().min(1, "Duration is required"),
         bookedCount: z.number().min(0),
         oldPrice: z.number().min(0, "Old price must be 0 or greater"),
@@ -50,6 +53,7 @@ const tourSchema = z
         details: z.object({
             about: z.string().min(100, "About section must be at least 100 characters"),
             itinerary: z.string().min(100, "Itinerary must be at least 100 characters"),
+            pickupOption: z.enum(["admin-defined", "user-provided"]),
             pickupLocation: z.string().min(10, "Pickup location must be at least 10 characters"),
             note: z.string().min(10, "Note must be at least 10 characters"),
             faq: z.array(
@@ -84,8 +88,20 @@ const tourSchema = z
             path: ["maximumPerson"],
         }
     )
+    .refine(
+        (data) => {
+            if (data.from.toLowerCase() === data.to.toLowerCase()) {
+                return false
+            }
+            return true
+        },
+        {
+            message: "From and To locations must be different",
+            path: ["to"],
+        }
+    )
 
-type TourFormData = z.infer<typeof tourSchema>
+type TransferFormData = z.infer<typeof transferSchema>
 
 // Collapsible Section Component
 interface CollapsibleSectionProps {
@@ -125,7 +141,7 @@ const CollapsibleSection = ({ title, isExpanded, onToggle, children, className =
     )
 }
 
-export default function AddTourPage() {
+export default function AddTransferPage() {
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [slugLoading, setSlugLoading] = useState(false)
@@ -138,9 +154,10 @@ export default function AddTourPage() {
     // Section visibility states
     const [sectionsExpanded, setSectionsExpanded] = useState({
         basicInfo: true,
+        routeInfo: true,
         pricing: false,
         departureTimes: false,
-        tourDetails: false,
+        transferDetails: false,
         faq: false,
     })
 
@@ -153,7 +170,7 @@ export default function AddTourPage() {
 
     const defaultValues = {
         bookedCount: 0,
-        type: "co-tour" as const,
+        type: "Van" as const,
         label: "None" as const,
         departureTimes: ["08:00"],
         oldPrice: 0,
@@ -162,9 +179,12 @@ export default function AddTourPage() {
         minimumPerson: 1,
         maximumPerson: 10,
         tags: [],
+        from: "",
+        to: "",
         details: {
             about: "",
             itinerary: "",
+            pickupOption: "admin-defined" as "admin-defined" | "user-provided",
             pickupLocation: "",
             note: "",
             faq: [{ question: "", answer: "" }],
@@ -181,8 +201,8 @@ export default function AddTourPage() {
         reset,
         trigger,
         formState: { errors, isValid },
-    } = useForm<TourFormData>({
-        resolver: zodResolver(tourSchema),
+    } = useForm<TransferFormData>({
+        resolver: zodResolver(transferSchema),
         defaultValues,
     })
 
@@ -200,11 +220,14 @@ export default function AddTourPage() {
     const watchBookedCount = watch("bookedCount")
     const watchOldPrice = watch("oldPrice")
     const watchNewPrice = watch("newPrice")
+    const watchChildPrice = watch("childPrice")
     const watchLabel = watch("label")
     const watchSlug = watch("slug")
+    const watchFrom = watch("from")
+    const watchTo = watch("to")
 
     // Auto-save draft key
-    const DRAFT_KEY = "tour-draft"
+    const DRAFT_KEY = "transfer-draft"
     const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null)
     const [lastSavedData, setLastSavedData] = useState<string>("")
     const [richTextContentChanged, setRichTextContentChanged] = useState(false)
@@ -287,6 +310,7 @@ export default function AddTourPage() {
     const formValues = watch()
     const watchAbout = watch("details.about")
     const watchItinerary = watch("details.itinerary")
+    const watchPickupOption = watch("details.pickupOption")
     const watchPickupLocation = watch("details.pickupLocation")
     const watchNote = watch("details.note")
     const watchFaq = watch("details.faq")
@@ -316,6 +340,8 @@ export default function AddTourPage() {
             currentValues.title ||
             currentValues.description ||
             currentValues.image ||
+            currentValues.from ||
+            currentValues.to ||
             (currentValues.tags && currentValues.tags.length > 0) ||
             currentValues.details?.about ||
             currentValues.details?.itinerary ||
@@ -356,6 +382,7 @@ export default function AddTourPage() {
         formValues,
         watchAbout,
         watchItinerary,
+        watchPickupOption,
         watchPickupLocation,
         watchNote,
         watchFaq,
@@ -373,6 +400,8 @@ export default function AddTourPage() {
                 currentData.title ||
                 currentData.description ||
                 currentData.image ||
+                currentData.from ||
+                currentData.to ||
                 (currentData.tags && currentData.tags.length > 0) ||
                 currentData.details?.about ||
                 currentData.details?.itinerary ||
@@ -447,9 +476,10 @@ export default function AddTourPage() {
             // Reset section expansion to default
             setSectionsExpanded({
                 basicInfo: true,
+                routeInfo: true,
                 pricing: false,
                 departureTimes: false,
-                tourDetails: false,
+                transferDetails: false,
                 faq: false,
             })
 
@@ -470,6 +500,8 @@ export default function AddTourPage() {
                 setValue("description", "")
                 setValue("image", "")
                 setValue("tags", [])
+                setValue("from", "")
+                setValue("to", "")
                 setValue("duration", "")
                 setValue("oldPrice", 0)
                 setValue("newPrice", 0)
@@ -477,11 +509,12 @@ export default function AddTourPage() {
                 setValue("minimumPerson", 1)
                 setValue("maximumPerson", 10)
                 setValue("bookedCount", 0)
-                setValue("type", "co-tour")
+                setValue("type", "Van")
                 setValue("label", "None")
                 setValue("departureTimes", ["08:00"])
                 setValue("details.about", "")
                 setValue("details.itinerary", "")
+                setValue("details.pickupOption", "admin-defined")
                 setValue("details.pickupLocation", "")
                 setValue("details.note", "")
                 setValue("details.faq", [{ question: "", answer: "" }])
@@ -524,9 +557,8 @@ export default function AddTourPage() {
         if (file) {
             if (file.size > 5 * 1024 * 1024) {
                 // 5MB limit
-                toast.error("Image size should be less than 5MB", {
+                toast.error("Image size should be less than 5MB ⚠️", {
                     duration: 4000,
-                    icon: "⚠️",
                 })
                 return
             }
@@ -536,15 +568,13 @@ export default function AddTourPage() {
                 const result = e.target?.result as string
                 setImagePreview(result)
                 setValue("image", result)
-                toast.success("Image uploaded successfully!", {
+                toast.success("Image uploaded successfully! 📸", {
                     duration: 3000,
-                    icon: "📸",
                 })
             }
             reader.onerror = () => {
-                toast.error("Failed to upload image. Please try again.", {
+                toast.error("Failed to upload image. Please try again. ❌", {
                     duration: 4000,
-                    icon: "❌",
                 })
             }
             reader.readAsDataURL(file)
@@ -575,8 +605,8 @@ export default function AddTourPage() {
         }
     }, [watchTitle, setValue])
 
-    // Handle save tour button click - validate first, then save if valid
-    const handleSaveTour = async () => {
+    // Handle save transfer button click - validate first, then save if valid
+    const handleSaveTransfer = async () => {
         // Force form validation
         const isFormValid = await trigger() // This will validate all fields
 
@@ -605,27 +635,27 @@ export default function AddTourPage() {
         onSubmit(currentData)
     }
 
-    const onSubmit = async (data: TourFormData) => {
+    const onSubmit = async (data: TransferFormData) => {
         setIsSubmitting(true)
         try {
-            // All validation already done in handleSaveTour
+            // All validation already done in handleSaveTransfer
             const validFaqs = data.details.faq.filter((faq) => faq.question.trim() && faq.answer.trim())
 
-            console.log("Submitting tour...") // Debug log
+            console.log("Submitting transfer...") // Debug log
             // In a real app, you would call your API here
-            console.log("Submitting tour:", { ...data, details: { ...data.details, faq: validFaqs } })
+            console.log("Submitting transfer:", { ...data, details: { ...data.details, faq: validFaqs } })
             await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
 
             // Clear draft after successful submission
             clearDraftFromStorage()
-            console.log("Tour submitted successfully") // Debug log
-            toast.success("Tour created successfully! 🎉", {
+            console.log("Transfer submitted successfully") // Debug log
+            toast.success("Transfer created successfully! 🚐", {
                 duration: 4000,
             })
-            router.push("/tours")
+            router.push("/transfers")
         } catch (error) {
-            console.error("Error creating tour:", error)
-            toast.error("Failed to create tour. Please try again. ❌", {
+            console.error("Error creating transfer:", error)
+            toast.error("Failed to create transfer. Please try again. ❌", {
                 duration: 4000,
             })
         } finally {
@@ -637,8 +667,8 @@ export default function AddTourPage() {
         <div className="min-h-screen bg-gray-50 pb-16">
             <div className="bg-white shadow-sm border-b border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold">Add New Tour</h1>
-                    <button onClick={() => router.push("/tours")} className="text-gray-500 hover:text-gray-700">
+                    <h1 className="text-2xl font-bold">Add New Transfer</h1>
+                    <button onClick={() => router.push("/transfers")} className="text-gray-500 hover:text-gray-700">
                         <FiX className="text-2xl" />
                     </button>
                 </div>
@@ -646,7 +676,7 @@ export default function AddTourPage() {
 
             <form onSubmit={handleSubmit(onSubmit)} className="max-w-7xl mx-auto px-4 py-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column - Basic Info */}
+                    {/* Left Column - Transfer Info */}
                     <div className="lg:col-span-2 space-y-6">
                         <CollapsibleSection
                             title="Basic Information"
@@ -655,14 +685,14 @@ export default function AddTourPage() {
                         >
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tour Title *</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Title *</label>
                                     <input
                                         {...register("title")}
                                         type="text"
                                         className={`w-full px-3 py-2 border rounded-md ${
                                             errors.title ? "border-red-500" : "border-gray-300"
                                         }`}
-                                        placeholder="E.g., Full Day Land Rover Adventure in Cameron Highlands"
+                                        placeholder="E.g., Private Van Transfer from Kuala Lumpur to Cameron Highlands"
                                     />
                                     <div className="flex justify-between mt-1">
                                         <p className="text-xs text-red-500">{errors.title?.message}</p>
@@ -702,7 +732,7 @@ export default function AddTourPage() {
                                             errors.description ? "border-red-500" : "border-gray-300"
                                         }`}
                                         rows={3}
-                                        placeholder="Brief description of the tour (50-110 characters)"
+                                        placeholder="Brief description of the transfer service (50-110 characters)"
                                     />
                                     <div className="flex justify-between mt-1">
                                         <p className="text-xs text-red-500">{errors.description?.message}</p>
@@ -711,7 +741,7 @@ export default function AddTourPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tour Image *</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Image *</label>
 
                                     {/* Upload method selector */}
                                     <div className="flex gap-4 mb-3">
@@ -777,7 +807,7 @@ export default function AddTourPage() {
                                             className={`w-full px-3 py-2 border rounded-md ${
                                                 errors.image ? "border-red-500" : "border-gray-300"
                                             }`}
-                                            placeholder="https://example.com/tour-image.jpg"
+                                            placeholder="https://example.com/transfer-image.jpg"
                                             onChange={(e) => {
                                                 setValue("image", e.target.value)
                                                 setImagePreview(e.target.value)
@@ -828,7 +858,7 @@ export default function AddTourPage() {
                                                             }
                                                         }}
                                                         className="w-full md:flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                                                        placeholder="Eg: Co-Tour, Full-Day, Half-Day"
+                                                        placeholder="Eg: Airport, Private, Express"
                                                     />
                                                     <button
                                                         type="button"
@@ -847,22 +877,45 @@ export default function AddTourPage() {
                             </div>
                         </CollapsibleSection>
 
-                        {/* Pricing & Availability */}
+                        {/* Route Information */}
                         <CollapsibleSection
-                            title="Pricing & Availability"
-                            isExpanded={sectionsExpanded.pricing}
-                            onToggle={() => toggleSection("pricing")}
+                            title="Route Information"
+                            isExpanded={sectionsExpanded.routeInfo}
+                            onToggle={() => toggleSection("routeInfo")}
                         >
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tour Type *</label>
-                                    <select
-                                        {...register("type")}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                    >
-                                        <option value="co-tour">Co-Tour</option>
-                                        <option value="private">Private</option>
-                                    </select>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">From *</label>
+                                        <div className="relative">
+                                            <input
+                                                {...register("from")}
+                                                type="text"
+                                                className={`w-full px-3 py-2 border rounded-md ${
+                                                    errors.from ? "border-red-500" : "border-gray-300"
+                                                }`}
+                                                placeholder="E.g., Kuala Lumpur International Airport"
+                                            />
+                                            <FiMapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                        </div>
+                                        <p className="text-xs text-red-500 mt-1">{errors.from?.message}</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">To *</label>
+                                        <div className="relative">
+                                            <input
+                                                {...register("to")}
+                                                type="text"
+                                                className={`w-full px-3 py-2 border rounded-md ${
+                                                    errors.to ? "border-red-500" : "border-gray-300"
+                                                }`}
+                                                placeholder="E.g., Cameron Highlands"
+                                            />
+                                            <FiMapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                        </div>
+                                        <p className="text-xs text-red-500 mt-1">{errors.to?.message}</p>
+                                    </div>
                                 </div>
 
                                 <div>
@@ -876,11 +929,45 @@ export default function AddTourPage() {
                                             className={`w-full px-3 py-2 border rounded-md ${
                                                 errors.duration ? "border-red-500" : "border-gray-300"
                                             }`}
-                                            placeholder="E.g. 4, 6-8"
+                                            placeholder="E.g. 3, 3-4"
                                         />
                                         <FiClock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                     </div>
                                     <p className="text-xs text-red-500 mt-1">{errors.duration?.message}</p>
+                                </div>
+                            </div>
+                        </CollapsibleSection>
+
+                        {/* Pricing & Availability */}
+                        <CollapsibleSection
+                            title="Pricing & Availability"
+                            isExpanded={sectionsExpanded.pricing}
+                            onToggle={() => toggleSection("pricing")}
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Type *</label>
+                                    <select
+                                        {...register("type")}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="Van">Van</option>
+                                        <option value="Van+Ferry">Van + Ferry</option>
+                                        <option value="Private">Private</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Label</label>
+                                    <select
+                                        {...register("label")}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="None">None</option>
+                                        <option value="Recommended">Recommended</option>
+                                        <option value="Popular">Popular</option>
+                                        <option value="Best Value">Best Value</option>
+                                    </select>
                                 </div>
 
                                 <div>
@@ -939,19 +1026,6 @@ export default function AddTourPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Label</label>
-                                    <select
-                                        {...register("label")}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                    >
-                                        <option value="None">None</option>
-                                        <option value="Recommended">Recommended</option>
-                                        <option value="Popular">Popular</option>
-                                        <option value="Best Value">Best Value</option>
-                                    </select>
-                                </div>
-
-                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Minimum Persons *
                                     </label>
@@ -997,12 +1071,12 @@ export default function AddTourPage() {
                                         <input
                                             {...register("bookedCount", { valueAsNumber: true })}
                                             type="number"
-                                            min="1"
+                                            min="0"
                                             step="1"
                                             className={`w-full px-3 py-2 border rounded-md ${
                                                 errors.bookedCount ? "border-red-500" : "border-gray-300"
                                             }`}
-                                            placeholder="1"
+                                            placeholder="0"
                                         />
                                         <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                     </div>
@@ -1064,16 +1138,16 @@ export default function AddTourPage() {
                             </div>
                         </CollapsibleSection>
 
-                        {/* Tour Details */}
+                        {/* Transfer Details */}
                         <CollapsibleSection
-                            title="Tour Details"
-                            isExpanded={sectionsExpanded.tourDetails}
-                            onToggle={() => toggleSection("tourDetails")}
+                            title="Transfer Details"
+                            isExpanded={sectionsExpanded.transferDetails}
+                            onToggle={() => toggleSection("transferDetails")}
                         >
                             <div className="space-y-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        About This Tour *
+                                        About This Transfer *
                                     </label>
                                     <Controller
                                         name="details.about"
@@ -1085,7 +1159,7 @@ export default function AddTourPage() {
                                                     field.onChange(content)
                                                     setRichTextContentChanged((prev) => !prev)
                                                 }}
-                                                placeholder="Describe what makes this tour special..."
+                                                placeholder="Describe what makes this transfer service special..."
                                                 error={!!errors.details?.about}
                                             />
                                         )}
@@ -1094,7 +1168,9 @@ export default function AddTourPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Itinerary *</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Route & Schedule *
+                                    </label>
                                     <Controller
                                         name="details.itinerary"
                                         control={control}
@@ -1105,7 +1181,7 @@ export default function AddTourPage() {
                                                     field.onChange(content)
                                                     setRichTextContentChanged((prev) => !prev)
                                                 }}
-                                                placeholder="Detail the tour schedule step by step..."
+                                                placeholder="Detail the transfer route, stops, and schedule..."
                                                 error={!!errors.details?.itinerary}
                                             />
                                         )}
@@ -1114,25 +1190,83 @@ export default function AddTourPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Pickup Location *
+                                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                                        Pickup Location Management *
                                     </label>
-                                    <Controller
-                                        name="details.pickupLocation"
-                                        control={control}
-                                        render={({ field }) => (
-                                            <RichTextEditor
-                                                content={field.value || ""}
-                                                onChange={(content) => {
-                                                    field.onChange(content)
-                                                    setRichTextContentChanged((prev) => !prev)
-                                                }}
-                                                placeholder="Describe pickup locations, meeting points, or transportation details..."
-                                                error={!!errors.details?.pickupLocation}
-                                            />
-                                        )}
-                                    />
-                                    <p className="text-xs text-red-500 mt-1">{errors.details?.pickupLocation?.message}</p>
+
+                                    {/* Pickup Option Selector */}
+                                    <div className="mb-4">
+                                        <div className="flex gap-4 mb-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setValue("details.pickupOption", "admin-defined")}
+                                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                                    watchPickupOption === "admin-defined"
+                                                        ? "bg-primary text-white"
+                                                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                }`}
+                                            >
+                                                Admin Defines Location
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setValue("details.pickupOption", "user-provided")}
+                                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                                    watchPickupOption === "user-provided"
+                                                        ? "bg-primary text-white"
+                                                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                }`}
+                                            >
+                                                User Provides Location
+                                            </button>
+                                        </div>
+
+                                        {/* Option descriptions */}
+                                        <div className="text-xs text-gray-600 mb-3">
+                                            {watchPickupOption === "admin-defined" ? (
+                                                <p>
+                                                    💡 You will specify exact pickup locations and instructions for
+                                                    customers
+                                                </p>
+                                            ) : (
+                                                <p>
+                                                    💡 Customers will be asked to provide their pickup location during
+                                                    booking
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Conditional Content Based on Option */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            {watchPickupOption === "admin-defined"
+                                                ? "Pickup Location & Instructions *"
+                                                : "Pickup Location Description *"}
+                                        </label>
+                                        <Controller
+                                            name="details.pickupLocation"
+                                            control={control}
+                                            render={({ field }) => (
+                                                <RichTextEditor
+                                                    content={field.value || ""}
+                                                    onChange={(content) => {
+                                                        field.onChange(content)
+                                                        setRichTextContentChanged((prev) => !prev)
+                                                    }}
+                                                    placeholder={
+                                                        watchPickupOption === "admin-defined"
+                                                            ? "Describe specific pickup locations, meeting points, contact information..."
+                                                            : "Describe what pickup information customers should provide (e.g., 'Please provide your hotel name and address' or 'Specify your pickup location within the city center')..."
+                                                    }
+                                                    error={!!errors.details?.pickupLocation}
+                                                />
+                                            )}
+                                        />
+                                        <p className="text-xs text-red-500 mt-1">
+                                            {errors.details?.pickupLocation?.message}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div>
@@ -1149,7 +1283,7 @@ export default function AddTourPage() {
                                                     field.onChange(content)
                                                     setRichTextContentChanged((prev) => !prev)
                                                 }}
-                                                placeholder="What to bring, restrictions, dress code, weather considerations, etc..."
+                                                placeholder="Luggage restrictions, cancellation policy, contact information, etc..."
                                                 error={!!errors.details?.note}
                                             />
                                         )}
@@ -1261,6 +1395,8 @@ export default function AddTourPage() {
                                         {errors.description && <li>• {errors.description.message}</li>}
                                         {errors.image && <li>• {errors.image.message}</li>}
                                         {errors.tags && <li>• {errors.tags.message}</li>}
+                                        {errors.from && <li>• From location: {errors.from.message}</li>}
+                                        {errors.to && <li>• To location: {errors.to.message}</li>}
                                         {errors.duration && <li>• {errors.duration.message}</li>}
                                         {errors.oldPrice && <li>• Old price: {errors.oldPrice.message}</li>}
                                         {errors.newPrice && <li>• New price: {errors.newPrice.message}</li>}
@@ -1270,7 +1406,7 @@ export default function AddTourPage() {
                                         {errors.departureTimes && <li>• {errors.departureTimes.message}</li>}
                                         {errors.details?.about && <li>• About section: {errors.details.about.message}</li>}
                                         {errors.details?.itinerary && (
-                                            <li>• Itinerary: {errors.details.itinerary.message}</li>
+                                            <li>• Route & Schedule: {errors.details.itinerary.message}</li>
                                         )}
                                         {errors.details?.pickupLocation && (
                                             <li>• Pickup location: {errors.details.pickupLocation.message}</li>
@@ -1286,7 +1422,7 @@ export default function AddTourPage() {
                             )}
 
                             {/* Form Status Indicator */}
-                            {isValid && !showValidationErrors && (
+                            {isValid && (
                                 <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
                                     <p className="text-sm text-green-800 flex items-center">
                                         <FiCheck className="mr-1" size={16} />
@@ -1298,10 +1434,10 @@ export default function AddTourPage() {
                             <div className="space-y-3">
                                 <button
                                     type="button"
-                                    onClick={handleSaveTour}
+                                    onClick={handleSaveTransfer}
                                     disabled={isSubmitting}
                                     className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-                                    title="Save tour (will validate form first)"
+                                    title="Save transfer (will validate form first)"
                                 >
                                     {isSubmitting ? (
                                         <>
@@ -1309,12 +1445,12 @@ export default function AddTourPage() {
                                             Saving...
                                         </>
                                     ) : (
-                                        "Save Tour"
+                                        "Save Transfer"
                                     )}
                                 </button>
 
                                 {/* Helper text */}
-                                <p className="text-xs text-gray-500 text-center">Click to validate and save tour</p>
+                                <p className="text-xs text-gray-500 text-center">Click to validate and save transfer</p>
 
                                 <button
                                     type="button"
@@ -1335,22 +1471,23 @@ export default function AddTourPage() {
                         </div>
 
                         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h2 className="text-xl font-semibold mb-4">Tour Preview</h2>
+                            <h2 className="text-xl font-semibold mb-4">Transfer Preview</h2>
                             <div className="w-full max-w-sm mx-auto">
                                 {watchTitle || watchImage ? (
-                                    <TourCardPreview
-                                        id={1}
-                                        slug={watchSlug || "sample-tour"}
-                                        image={watchImage || imagePreview || "/images/placeholder-tour.jpg"}
-                                        title={watchTitle || "Sample Tour Title"}
-                                        tags={watchTags && watchTags.length > 0 ? watchTags : ["Sample Tag"]}
-                                        desc={watchDescription || "Sample tour description..."}
-                                        duration={watchDuration || "4"}
+                                    <TransferCardPreview
+                                        image={watchImage || imagePreview || "/images/placeholder-transfer.jpg"}
+                                        title={watchTitle || "Sample Transfer Title"}
+                                        tags={watchTags || ["Sample Tag"]}
+                                        desc={watchDescription || "Sample transfer description..."}
+                                        duration={watchDuration || "3"}
                                         bookedCount={watchBookedCount || 0}
                                         oldPrice={watchOldPrice || 0}
                                         newPrice={watchNewPrice || 0}
-                                        type={watchType || "co-tour"}
-                                        label={watchLabel !== "None" ? watchLabel : null}
+                                        childPrice={watchChildPrice || 0}
+                                        type={watchType || "Van"}
+                                        label={watchLabel}
+                                        from={watchFrom || "From Location"}
+                                        to={watchTo || "To Location"}
                                     />
                                 ) : (
                                     <div className="border border-dashed border-gray-300 rounded-md p-8 text-center text-gray-500">

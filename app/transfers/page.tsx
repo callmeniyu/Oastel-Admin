@@ -1,6 +1,7 @@
 import AdminHeader from '@/components/admin/AdminHeader';
 import MobileNav from '@/components/admin/MobileNav';
 import DataTable from '@/components/admin/DataTable';
+import Link from 'next/link';
 
 export default function TransfersPage() {
   const transfers = [
@@ -42,9 +43,9 @@ export default function TransfersPage() {
       <main className="p-4">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-dark">Transfers</h1>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium">
+          <Link href="/transfers/add-transfer" className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium">
             + Add Transfer
-          </button>
+          </Link>
         </div>
         
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
