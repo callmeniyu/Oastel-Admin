@@ -39,6 +39,8 @@ const tourSchema = z
             .max(110, "Description cannot exceed 110 characters"),
         type: z.enum(["co-tour", "private"]),
         duration: z.string().min(1, "Duration is required"),
+        period: z.enum(["Half-Day", "Full-Day"]),
+        status: z.enum(["active", "sold"]),
         bookedCount: z.number().min(0),
         oldPrice: z.number().min(0, "Old price must be 0 or greater"),
         newPrice: z.number().min(0, "New price must be 0 or greater"),
@@ -154,6 +156,8 @@ export default function AddTourPage() {
     const defaultValues = {
         bookedCount: 0,
         type: "co-tour" as const,
+        period: "Half-Day" as const,
+        status: "active" as const,
         label: "None" as const,
         departureTimes: ["08:00"],
         oldPrice: 0,
@@ -918,6 +922,30 @@ export default function AddTourPage() {
                                         <FiClock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                     </div>
                                     <p className="text-xs text-red-500 mt-1">{errors.duration?.message}</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Period *</label>
+                                    <select
+                                        {...register("period")}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="Half-Day">Half-Day</option>
+                                        <option value="Full-Day">Full-Day</option>
+                                    </select>
+                                    <p className="text-xs text-red-500 mt-1">{errors.period?.message}</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                                    <select
+                                        {...register("status")}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="active">Active</option>
+                                        <option value="sold">Sold Out</option>
+                                    </select>
+                                    <p className="text-xs text-red-500 mt-1">{errors.status?.message}</p>
                                 </div>
 
                                 <div>
