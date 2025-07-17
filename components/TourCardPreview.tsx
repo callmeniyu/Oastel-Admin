@@ -7,6 +7,11 @@ import { formatNumber } from "@/lib/utils"
 const resolveImageUrl = (imagePath: string): string => {
     if (!imagePath) return ""
 
+    // If it's a blob URL, return as is (for previews)
+    if (imagePath.startsWith("blob:")) {
+        return imagePath
+    }
+
     // If it's already a full URL (http/https), return as is
     if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
         return imagePath
@@ -82,13 +87,19 @@ export default function TourCardPreview({
                     {label}
                 </div>
             )}
-            <Image
-                src={resolveImageUrl(image)}
-                alt={title}
-                width={400}
-                height={400}
-                className="h-48 w-full object-cover rounded-t-lg"
-            />
+            {image && image.startsWith("blob:") ? (
+                // Use regular img tag for blob URLs (previews)
+                <img src={resolveImageUrl(image)} alt={title} className="h-48 w-full object-cover rounded-t-lg" />
+            ) : (
+                // Use Next.js Image for all other URLs
+                <Image
+                    src={resolveImageUrl(image) || "/images/placeholder-tour.jpg"}
+                    alt={title}
+                    width={400}
+                    height={400}
+                    className="h-48 w-full object-cover rounded-t-lg"
+                />
+            )}
             <div className="p-4 flex flex-col justify-between gap-2 self-start">
                 <h3 className="text-primary font-semibold font-poppins text-base">{title}</h3>
                 <div className="flex gap-2">
