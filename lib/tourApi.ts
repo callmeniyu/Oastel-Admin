@@ -143,4 +143,26 @@ export const tourApi = {
             throw error
         }
     },
+
+    // Update a tour
+    updateTour: async (id: string, tourData: any): Promise<{ success: boolean; message: string; data: TourType }> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/tours/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(tourData),
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            return await response.json()
+        } catch (error) {
+            console.error("Error updating tour:", error)
+            throw error
+        }
+    },
 }

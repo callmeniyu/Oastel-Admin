@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import AdminHeader from "@/components/admin/AdminHeader"
 import MobileNav from "@/components/admin/MobileNav"
 import DataTable from "@/components/admin/DataTable"
@@ -23,6 +24,7 @@ interface TourTableData {
 }
 
 export default function ToursPage() {
+    const router = useRouter()
     const [tours, setTours] = useState<TourTableData[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -257,7 +259,7 @@ export default function ToursPage() {
                             actionHandlers={{
                                 onEdit: (row) => {
                                     // Navigate to edit page
-                                    window.location.href = `/tours/edit/${row._id}`
+                                    router.push(`/tours/${row._id}`)
                                 },
                                 onDelete: (row) => {
                                     handleDelete(row._id as string)
