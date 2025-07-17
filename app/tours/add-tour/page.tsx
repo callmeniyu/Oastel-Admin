@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
     FiPlus,
@@ -205,7 +205,7 @@ export default function AddTourPage() {
 
     // Auto-save draft key
     const DRAFT_KEY = "tour-draft"
-    const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null)
+    const autoSaveTimer = useRef<NodeJS.Timeout | null>(null)
     const [lastSavedData, setLastSavedData] = useState<string>("")
     const [richTextContentChanged, setRichTextContentChanged] = useState(false)
 
@@ -285,11 +285,6 @@ export default function AddTourPage() {
 
     // Enhanced auto-save functionality - watch all form values
     const formValues = watch()
-    const watchAbout = watch("details.about")
-    const watchItinerary = watch("details.itinerary")
-    const watchPickupLocation = watch("details.pickupLocation")
-    const watchNote = watch("details.note")
-    const watchFaq = watch("details.faq")
 
     // Hide validation errors when user starts making changes
     useEffect(() => {
@@ -304,8 +299,8 @@ export default function AddTourPage() {
 
     useEffect(() => {
         // Clear existing timer
-        if (autoSaveTimer) {
-            clearTimeout(autoSaveTimer)
+        if (autoSaveTimer.current) {
+            clearTimeout(autoSaveTimer.current)
         }
 
         // Get current form values (this ensures we get the latest values including RichTextEditor content)
@@ -342,28 +337,17 @@ export default function AddTourPage() {
                     }
                 }, 1500) // Auto-save after 1.5 seconds of inactivity
 
-                setAutoSaveTimer(timer)
+                autoSaveTimer.current = timer
             }
         }
 
         // Cleanup timer on unmount
         return () => {
-            if (autoSaveTimer) {
-                clearTimeout(autoSaveTimer)
+            if (autoSaveTimer.current) {
+                clearTimeout(autoSaveTimer.current)
             }
         }
-    }, [
-        formValues,
-        watchAbout,
-        watchItinerary,
-        watchPickupLocation,
-        watchNote,
-        watchFaq,
-        richTextContentChanged,
-        lastSavedData,
-        autoSaveTimer,
-        getValues,
-    ])
+    }, [formValues, lastSavedData])
 
     // Save before page unload
     useEffect(() => {
@@ -402,7 +386,7 @@ export default function AddTourPage() {
             window.removeEventListener("beforeunload", handleBeforeUnload)
             document.removeEventListener("visibilitychange", handleVisibilityChange)
         }
-    }, [getValues])
+    }, [])
 
     // Manual save draft function
     const handleSaveDraft = () => {
@@ -519,7 +503,7 @@ export default function AddTourPage() {
     }
 
     // Handle image upload
-    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
         if (file) {
             if (file.size > 5 * 1024 * 1024) {
@@ -531,23 +515,54 @@ export default function AddTourPage() {
                 return
             }
 
-            const reader = new FileReader()
-            reader.onload = (e) => {
-                const result = e.target?.result as string
-                setImagePreview(result)
-                setValue("image", result)
+            // Show preview immediately using URL.createObjectURL
+            const previewUrl = URL.createObjectURL(file)
+            setImagePreview(previewUrl)
+
+            try {
+                toast.loading("Uploading image...", { id: "upload" })
+
+                // Upload to server
+                const formData = new FormData()
+                formData.append("image", file)
+
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+                const response = await fetch(`${apiUrl}/api/upload/tour-image`, {
+                    method: "POST",
+                    body: formData,
+                })
+
+                if (!response.ok) {
+                    const errorData = await response.json()
+                    throw new Error(errorData.message || "Upload failed")
+                }
+
+                const result = await response.json()
+
+                // Set the server image URL
+                setValue("image", result.data.imageUrl)
+
                 toast.success("Image uploaded successfully!", {
                     duration: 3000,
                     icon: "📸",
+                    id: "upload",
                 })
-            }
-            reader.onerror = () => {
-                toast.error("Failed to upload image. Please try again.", {
+
+                // Clean up the preview URL
+                URL.revokeObjectURL(previewUrl)
+            } catch (error: any) {
+                console.error("Image upload error:", error)
+                toast.error(`Failed to upload image: ${error.message}`, {
                     duration: 4000,
                     icon: "❌",
+                    id: "upload",
                 })
+
+                // Reset on error
+                setImagePreview("")
+                setValue("image", "")
+                URL.revokeObjectURL(previewUrl)
             }
-            reader.readAsDataURL(file)
         }
     }
 
@@ -611,10 +626,32 @@ export default function AddTourPage() {
             // All validation already done in handleSaveTour
             const validFaqs = data.details.faq.filter((faq) => faq.question.trim() && faq.answer.trim())
 
+            const tourData = {
+                ...data,
+                packageType: "tour", // Ensure packageType is always "tour"
+                details: {
+                    ...data.details,
+                    faq: validFaqs,
+                },
+            }
+
             console.log("Submitting tour...") // Debug log
-            // In a real app, you would call your API here
-            console.log("Submitting tour:", { ...data, details: { ...data.details, faq: validFaqs } })
-            await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
+
+            // Call the API
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+            const response = await fetch(`${apiUrl}/api/tours`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(tourData),
+            })
+
+            const result = await response.json()
+
+            if (!response.ok) {
+                throw new Error(result.message || "Failed to create tour")
+            }
 
             // Clear draft after successful submission
             clearDraftFromStorage()
@@ -623,9 +660,9 @@ export default function AddTourPage() {
                 duration: 4000,
             })
             router.push("/tours")
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating tour:", error)
-            toast.error("Failed to create tour. Please try again. ❌", {
+            toast.error(`Failed to create tour: ${error.message || "Please try again."} ❌`, {
                 duration: 4000,
             })
         } finally {

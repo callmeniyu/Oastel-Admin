@@ -3,6 +3,31 @@ import { MdAccessTimeFilled } from "react-icons/md"
 import { FaBookmark } from "react-icons/fa"
 import { formatNumber } from "@/lib/utils"
 
+// Image utility function for admin components
+const resolveImageUrl = (imagePath: string): string => {
+    if (!imagePath) return ""
+
+    // If it's already a full URL (http/https), return as is
+    if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+        return imagePath
+    }
+
+    // If it's a data URL (base64), return as is
+    if (imagePath.startsWith("data:")) {
+        return imagePath
+    }
+
+    // If it's a relative path starting with /uploads/, prepend API base URL
+    if (imagePath.startsWith("/uploads/")) {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+        return `${API_BASE_URL}${imagePath}`
+    }
+
+    // For any other relative paths, prepend API base URL
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+    return `${API_BASE_URL}/${imagePath.replace(/^\//, "")}`
+}
+
 type TourCardProps = {
     id: number
     slug: string
@@ -57,7 +82,13 @@ export default function TourCardPreview({
                     {label}
                 </div>
             )}
-            <Image src={image} alt={title} width={400} height={400} className="h-48 w-full object-cover rounded-t-lg" />
+            <Image
+                src={resolveImageUrl(image)}
+                alt={title}
+                width={400}
+                height={400}
+                className="h-48 w-full object-cover rounded-t-lg"
+            />
             <div className="p-4 flex flex-col justify-between gap-2 self-start">
                 <h3 className="text-primary font-semibold font-poppins text-base">{title}</h3>
                 <div className="flex gap-2">
@@ -87,9 +118,7 @@ export default function TourCardPreview({
                         </h4>
                     </div>
 
-                    <button
-                        className="bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md w-24 transition-colors"
-                    >
+                    <button className="bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md w-24 transition-colors">
                         Book
                     </button>
                 </div>
