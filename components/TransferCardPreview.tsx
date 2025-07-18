@@ -1,6 +1,8 @@
 import Image from "next/image"
-import { FiMapPin, FiClock, FiUsers } from "react-icons/fi"
-import { formatNumber } from "@/lib/utils"
+import { MdAccessTimeFilled } from "react-icons/md"
+import { FaBookmark } from "react-icons/fa"
+import { FiMapPin } from "react-icons/fi"
+import { IoFlagSharp } from "react-icons/io5"
 
 type TransferCardProps = {
     id?: number
@@ -16,9 +18,15 @@ type TransferCardProps = {
     childPrice: number
     type: string
     label?: string | null
+    status?: "active" | "sold"
     from: string
     to: string
 }
+
+// Tag Component (inline since we don't have access to the client Tag component)
+const Tag = ({ tag }: { tag: string }) => (
+    <span className="bg-[#E6F1EE] text-primary px-2 py-1 rounded-md text-xs font-medium">{tag}</span>
+)
 
 export default function TransferCardPreview({
     id,
@@ -34,6 +42,7 @@ export default function TransferCardPreview({
     childPrice,
     type,
     label,
+    status = "active",
     from,
     to,
 }: TransferCardProps) {
@@ -52,7 +61,7 @@ export default function TransferCardPreview({
     }
 
     return (
-        <div className="rounded-xl shadow-lg bg-white flex flex-col justify-between max-h-max relative">
+        <div className="rounded-xl shadow-lg bg-white flex flex-col flex-grow justify-between relative">
             {/* Label Badge */}
             {label && label !== "None" && (
                 <div
@@ -70,72 +79,49 @@ export default function TransferCardPreview({
                 height={400}
                 className="h-48 w-full object-cover rounded-t-lg"
             />
-            <div className="p-4 flex flex-col justify-between gap-2 self-start">
-                <h3 className="text-primary font-semibold font-poppins text-base line-clamp-2">
-                    {title || "Sample Transfer Title"}
-                </h3>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1">
+            <div className="p-4 flex flex-col justify-between gap-2 self-start font-poppins">
+                <h3 className="text-primary font-semibold font-poppins text-base">{title || "Sample Transfer Title"}</h3>
+                <div className="flex gap-2">
                     {(tags && tags.length > 0 ? tags : ["Sample Tag"]).map((tag, i) => (
-                        <span key={i} className="bg-[#E6F1EE] text-primary px-2 py-1 rounded-md text-xs font-medium">
-                            {tag}
-                        </span>
+                        <Tag key={i} tag={tag} />
                     ))}
                 </div>
-
-                {/* Route */}
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <FiMapPin className="text-primary flex-shrink-0" />
-                    <span className="line-clamp-1">
-                        {from || "From Location"} → {to || "To Location"}
-                    </span>
-                </div>
-
-                {/* Description */}
-                <p className="text-gray-500 text-sm font-poppins line-clamp-2">
-                    {desc || "Sample transfer description..."}
-                </p>
-
-                {/* Duration, Type & Booked Count */}
-                <div className="flex justify-between gap-2 text-sm">
-                    <div className="flex gap-3">
-                        <div className="flex gap-1 items-center font-semibold">
-                            <FiClock className="text-primary" />
-                            <span>{duration || "3"}h</span>
+                <p className="text-gray-500 text-sm font-poppins">{desc || "Sample transfer description..."}</p>
+                <div className="flex justify-between">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-2 items-center font-semibold">
+                            <FiMapPin width={30} className="text-primary text-md" />
+                            <p className="text-sm">{from || "From Location"}</p>
                         </div>
-                        <div className="flex items-center gap-1">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                {type || "Van"}
-                            </span>
+                        <div className="flex gap-2 items-center font-semibold">
+                            <IoFlagSharp width={30} className="text-primary text-md" />
+                            <p className="text-sm">{to || "To Location"}</p>
                         </div>
                     </div>
-                    <div className="flex gap-1 items-center font-semibold text-gray-600">
-                        <FiUsers className="text-primary" />
-                        <span>{formatNumber(Number(bookedCount) || 0)}+ Booked</span>
+                    <div className="flex flex-col justify-between gap-2">
+                        <div className="flex gap-2 items-center font-semibold">
+                            <FaBookmark width={30} className="text-primary text-md" />
+                            <p className="text-sm">{Number(bookedCount) || 0}+ Booked</p>
+                        </div>
+                        <div className="flex gap-2 items-center font-semibold">
+                            <MdAccessTimeFilled width={30} className="text-primary text-lg" />
+                            <p className="text-sm">{duration || "3"} hrs</p>
+                        </div>
                     </div>
                 </div>
-
-                {/* Pricing */}
                 <div className="flex justify-between items-center mt-2">
                     <div className="flex flex-col items-start">
                         {oldPrice > 0 && oldPrice !== newPrice && (
-                            <p className="text-gray-400 line-through font-poppins text-sm">RM{oldPrice}</p>
+                            <p className="text-gray-400 line-through font-poppins text-base">{oldPrice}</p>
                         )}
-                        <div className="flex items-baseline gap-2">
-                            <h4 className="font-poppins text-xl font-bold text-primary">RM{newPrice || 0}</h4>
-                            <span className="text-sm font-light text-gray-600">
-                                {type === "Private" ? "/group" : "/person"}
-                            </span>
-                        </div>
-                        {childPrice > 0 && <p className="text-xs text-gray-500">Child: RM{childPrice}</p>}
+                        <h4 className="font-poppins text-xl font-bold">
+                            {newPrice || 0} RM{" "}
+                            <span className="text-sm font-light">{type === "private" ? "/group" : "/person"}</span>
+                        </h4>
                     </div>
 
-                    <button
-                        className="bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
-                        disabled
-                    >
-                        Book Now
+                    <button className="bg-primary text-white font-semibold py-2 px-4 rounded-md w-24 transition-colors">
+                        Book
                     </button>
                 </div>
             </div>

@@ -38,7 +38,7 @@ const transferSchema = z
             .string()
             .min(50, "Description must be at least 50 characters")
             .max(110, "Description cannot exceed 110 characters"),
-        type: z.enum(["Van", "Van+Ferry", "Private"]),
+        type: z.enum(["Van", "Van + Ferry", "Private"]),
         from: z.string().min(2, "From location is required"),
         to: z.string().min(2, "To location is required"),
         duration: z.string().min(1, "Duration is required"),
@@ -50,10 +50,11 @@ const transferSchema = z
         maximumPerson: z.number().min(1, "Maximum must be at least 1 person"),
         departureTimes: z.array(z.string()).min(1, "At least one departure time is required"),
         label: z.enum(["Recommended", "Popular", "Best Value", "None"]),
+        status: z.enum(["active", "sold"]),
         details: z.object({
             about: z.string().min(100, "About section must be at least 100 characters"),
             itinerary: z.string().min(100, "Itinerary must be at least 100 characters"),
-            pickupOption: z.enum(["admin-defined", "user-provided"]),
+            pickupOption: z.enum(["admin", "user"]),
             pickupLocation: z.string().min(10, "Pickup location must be at least 10 characters"),
             note: z.string().min(10, "Note must be at least 10 characters"),
             faq: z.array(
@@ -172,6 +173,7 @@ export default function AddTransferPage() {
         bookedCount: 0,
         type: "Van" as const,
         label: "None" as const,
+        status: "active" as const,
         departureTimes: ["08:00"],
         oldPrice: 0,
         newPrice: 0,
@@ -184,7 +186,7 @@ export default function AddTransferPage() {
         details: {
             about: "",
             itinerary: "",
-            pickupOption: "admin-defined" as "admin-defined" | "user-provided",
+            pickupOption: "admin" as "admin" | "user",
             pickupLocation: "",
             note: "",
             faq: [{ question: "", answer: "" }],
@@ -222,6 +224,7 @@ export default function AddTransferPage() {
     const watchNewPrice = watch("newPrice")
     const watchChildPrice = watch("childPrice")
     const watchLabel = watch("label")
+    const watchStatus = watch("status")
     const watchSlug = watch("slug")
     const watchFrom = watch("from")
     const watchTo = watch("to")
@@ -388,7 +391,6 @@ export default function AddTransferPage() {
         watchFaq,
         richTextContentChanged,
         lastSavedData,
-        autoSaveTimer,
         getValues,
     ])
 
@@ -511,10 +513,11 @@ export default function AddTransferPage() {
                 setValue("bookedCount", 0)
                 setValue("type", "Van")
                 setValue("label", "None")
+                setValue("status", "active")
                 setValue("departureTimes", ["08:00"])
                 setValue("details.about", "")
                 setValue("details.itinerary", "")
-                setValue("details.pickupOption", "admin-defined")
+                setValue("details.pickupOption", "admin")
                 setValue("details.pickupLocation", "")
                 setValue("details.note", "")
                 setValue("details.faq", [{ question: "", answer: "" }])
@@ -641,10 +644,52 @@ export default function AddTransferPage() {
             // All validation already done in handleSaveTransfer
             const validFaqs = data.details.faq.filter((faq) => faq.question.trim() && faq.answer.trim())
 
-            console.log("Submitting transfer...") // Debug log
-            // In a real app, you would call your API here
-            console.log("Submitting transfer:", { ...data, details: { ...data.details, faq: validFaqs } })
-            await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
+            // Prepare transfer data for API
+            const transferData = {
+                ...data,
+                status: "active",
+                details: {
+                    ...data.details,
+                    faq: validFaqs,
+                    // Map pickupLocation to pickupLocations for the API
+                    pickupLocations: data.details.pickupLocation || "",
+                },
+                // Map form field names to API field names
+                desc: data.description,
+                times: data.departureTimes,
+            }
+
+            // Remove the form-specific fields that don't exist in the API
+            const {
+                description,
+                departureTimes,
+                details: { pickupLocation, ...detailsRest },
+                ...rest
+            } = transferData
+            const finalTransferData = {
+                ...rest,
+                details: detailsRest,
+                desc: description,
+                times: departureTimes,
+            }
+            console.log("Submitting transfer:", finalTransferData) // Debug log
+
+            // Call the API to create the transfer
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002"
+            const response = await fetch(`${apiUrl}/api/transfers`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(finalTransferData),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.message || "Failed to create transfer")
+            }
+
+            const result = await response.json()
 
             // Clear draft after successful submission
             clearDraftFromStorage()
@@ -655,7 +700,7 @@ export default function AddTransferPage() {
             router.push("/transfers")
         } catch (error) {
             console.error("Error creating transfer:", error)
-            toast.error("Failed to create transfer. Please try again. ❌", {
+            toast.error(error instanceof Error ? error.message : "Failed to create transfer. Please try again. ❌", {
                 duration: 4000,
             })
         } finally {
@@ -952,7 +997,7 @@ export default function AddTransferPage() {
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                     >
                                         <option value="Van">Van</option>
-                                        <option value="Van+Ferry">Van + Ferry</option>
+                                        <option value="Van + Ferry">Van + Ferry</option>
                                         <option value="Private">Private</option>
                                     </select>
                                 </div>
@@ -967,6 +1012,17 @@ export default function AddTransferPage() {
                                         <option value="Recommended">Recommended</option>
                                         <option value="Popular">Popular</option>
                                         <option value="Best Value">Best Value</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                                    <select
+                                        {...register("status")}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="active">Active</option>
+                                        <option value="sold">Sold</option>
                                     </select>
                                 </div>
 
@@ -1199,9 +1255,9 @@ export default function AddTransferPage() {
                                         <div className="flex gap-4 mb-3">
                                             <button
                                                 type="button"
-                                                onClick={() => setValue("details.pickupOption", "admin-defined")}
+                                                onClick={() => setValue("details.pickupOption", "admin")}
                                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                                                    watchPickupOption === "admin-defined"
+                                                    watchPickupOption === "admin"
                                                         ? "bg-primary text-white"
                                                         : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                                 }`}
@@ -1210,9 +1266,9 @@ export default function AddTransferPage() {
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setValue("details.pickupOption", "user-provided")}
+                                                onClick={() => setValue("details.pickupOption", "user")}
                                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                                                    watchPickupOption === "user-provided"
+                                                    watchPickupOption === "user"
                                                         ? "bg-primary text-white"
                                                         : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                                 }`}
@@ -1223,7 +1279,7 @@ export default function AddTransferPage() {
 
                                         {/* Option descriptions */}
                                         <div className="text-xs text-gray-600 mb-3">
-                                            {watchPickupOption === "admin-defined" ? (
+                                            {watchPickupOption === "admin" ? (
                                                 <p>
                                                     💡 You will specify exact pickup locations and instructions for
                                                     customers
@@ -1240,7 +1296,7 @@ export default function AddTransferPage() {
                                     {/* Conditional Content Based on Option */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            {watchPickupOption === "admin-defined"
+                                            {watchPickupOption === "admin"
                                                 ? "Pickup Location & Instructions *"
                                                 : "Pickup Location Description *"}
                                         </label>
@@ -1255,7 +1311,7 @@ export default function AddTransferPage() {
                                                         setRichTextContentChanged((prev) => !prev)
                                                     }}
                                                     placeholder={
-                                                        watchPickupOption === "admin-defined"
+                                                        watchPickupOption === "admin"
                                                             ? "Describe specific pickup locations, meeting points, contact information..."
                                                             : "Describe what pickup information customers should provide (e.g., 'Please provide your hotel name and address' or 'Specify your pickup location within the city center')..."
                                                     }

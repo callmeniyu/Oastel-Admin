@@ -129,7 +129,7 @@ export default function TourCardPreview({
                         </h4>
                     </div>
 
-                    <button className="bg-primary hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md w-24 transition-colors">
+                    <button className="bg-primary text-white font-semibold py-2 px-4 rounded-md w-24 transition-colors">
                         Book
                     </button>
                 </div>
