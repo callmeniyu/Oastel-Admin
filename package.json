@@ -19,6 +19,8 @@
         "@tiptap/pm": "^3.0.6",
         "@tiptap/react": "^3.0.6",
         "@tiptap/starter-kit": "^3.0.6",
+        "@types/mongoose": "^5.11.97",
+        "mongoose": "^8.16.4",
         "next": "15.3.5",
         "quill": "^2.0.3",
         "react": "^19.0.0",

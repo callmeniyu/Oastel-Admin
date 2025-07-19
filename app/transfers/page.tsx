@@ -13,13 +13,14 @@ import { toast } from "react-hot-toast"
 
 interface TransferTableData {
     id: string
+    name: string
+    category: string
     route: string
-    type: string
-    price: string | number
-    status: React.ReactNode
+    price: string | number // Allow both for formatted display
+    status: React.ReactNode // Change to ReactNode to allow status toggle component
     _id: string
-    originalStatus: "active" | "sold"
-    [key: string]: any
+    originalStatus: "active" | "sold" // Keep original status for toggle functionality
+    [key: string]: any // Index signature for DataTable compatibility
 }
 
 export default function TransfersPage() {
@@ -48,12 +49,13 @@ export default function TransfersPage() {
                 // Transform the data to match the table structure
                 const transformedTransfers: TransferTableData[] = response.data.map((transfer: TransferType) => ({
                     id: transfer._id,
+                    name: transfer.title,
+                    category: transfer.type,
                     route: `${transfer.from} → ${transfer.to}`,
-                    type: transfer.type,
                     price: `RM ${transfer.newPrice.toFixed(2)}`,
                     status: (
                         <StatusToggle
-                            key={`${transfer._id}-${transfer.status}`}
+                            key={`${transfer._id}-${transfer.status}`} // Add key to force re-render
                             initialStatus={transfer.status}
                             onStatusChange={(status) => handleStatusUpdate(transfer._id, status)}
                         />
@@ -89,7 +91,7 @@ export default function TransfersPage() {
                               originalStatus: newStatus,
                               status: (
                                   <StatusToggle
-                                      key={`${transferId}-${newStatus}`}
+                                      key={`${transferId}-${newStatus}`} // Add key to force re-render
                                       initialStatus={newStatus}
                                       onStatusChange={(status) => handleStatusUpdate(transferId, status)}
                                   />
@@ -115,7 +117,7 @@ export default function TransfersPage() {
         setDeleteConfirmation({
             isOpen: true,
             transferId: id,
-            transferName: transferToDelete.route,
+            transferName: transferToDelete.name,
         })
     }
 
@@ -125,9 +127,8 @@ export default function TransfersPage() {
 
         try {
             await transferApi.deleteTransfer(deleteConfirmation.transferId)
-            setTransfers((prevTransfers) =>
-                prevTransfers.filter((transfer) => transfer._id !== deleteConfirmation.transferId)
-            )
+            // Remove the deleted transfer from the local state
+            setTransfers(transfers.filter((transfer) => transfer._id !== deleteConfirmation.transferId))
             toast.success("Transfer deleted successfully")
         } catch (error) {
             console.error("Error deleting transfer:", error)
@@ -141,14 +142,19 @@ export default function TransfersPage() {
         }
     }
 
-    // Handle edit navigation
-    const handleEdit = (id: string) => {
-        router.push(`/transfers/edit/${id}`)
+    // Close confirmation dialog
+    const closeDeleteConfirmation = () => {
+        setDeleteConfirmation({
+            isOpen: false,
+            transferId: null,
+            transferName: "",
+        })
     }
 
     const columns = [
+        { key: "name", label: "Transfer Name" },
+        { key: "category", label: "Category" },
         { key: "route", label: "Route" },
-        { key: "type", label: "Type" },
         { key: "price", label: "Price (RM)" },
         { key: "status", label: "Status" },
         { key: "actions", label: "Actions" },
@@ -158,21 +164,26 @@ export default function TransfersPage() {
         return (
             <div className="min-h-screen bg-gray-50 pb-16">
                 <AdminHeader />
+
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-2xl font-bold text-dark">Transfers</h1>
+                        <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
                         <Link
-                            href="/transfers/add-transfer"
+                            href={"/transfers/add-transfer"}
                             className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                         >
                             + Add Transfer
                         </Link>
                     </div>
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                        <p className="text-gray-600">Loading transfers...</p>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
+                        <div className="flex justify-center items-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            <span className="ml-3 text-gray-600">Loading transfers...</span>
+                        </div>
                     </div>
                 </main>
+
                 <MobileNav />
             </div>
         )
@@ -182,36 +193,32 @@ export default function TransfersPage() {
         return (
             <div className="min-h-screen bg-gray-50 pb-16">
                 <AdminHeader />
+
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-2xl font-bold text-dark">Transfers</h1>
+                        <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
                         <Link
-                            href="/transfers/add-transfer"
+                            href={"/transfers/add-transfer"}
                             className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                         >
                             + Add Transfer
                         </Link>
                     </div>
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 text-center">
-                        <div className="text-red-500 mb-4">
-                            <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                            </svg>
-                            <p className="text-lg font-semibold">{error}</p>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
+                        <div className="text-center text-red-500">
+                            <p className="text-lg font-semibold">Error Loading Transfers</p>
+                            <p className="text-sm mt-2">{error}</p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/80"
+                            >
+                                Retry
+                            </button>
                         </div>
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                        >
-                            Try Again
-                        </button>
                     </div>
                 </main>
+
                 <MobileNav />
             </div>
         )
@@ -223,9 +230,9 @@ export default function TransfersPage() {
 
             <main className="p-4">
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold text-dark">Transfers</h1>
+                    <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
                     <Link
-                        href="/transfers/add-transfer"
+                        href={"/transfers/add-transfer"}
                         className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
                         + Add Transfer
@@ -233,27 +240,51 @@ export default function TransfersPage() {
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                    <DataTable
-                        columns={columns}
-                        data={transfers}
-                        rowActions={["edit", "delete"]}
-                        actionHandlers={{
-                            onEdit: (row: any) => handleEdit(row._id),
-                            onDelete: (row: any) => handleDelete(row._id),
-                        }}
-                    />
+                    {transfers.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">
+                            <p className="text-lg font-semibold">No transfers found</p>
+                            <p className="text-sm mt-2">Get started by adding your first transfer package.</p>
+                            <Link
+                                href="/transfers/add-transfer"
+                                className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/80"
+                            >
+                                Add Transfer
+                            </Link>
+                        </div>
+                    ) : (
+                        <DataTable
+                            columns={columns}
+                            data={transfers}
+                            rowActions={["edit", "delete"]}
+                            actionHandlers={{
+                                onEdit: (row) => {
+                                    // Navigate to edit page
+                                    router.push(`/transfers/${row._id}`)
+                                },
+                                onDelete: (row) => {
+                                    handleDelete(row._id as string)
+                                },
+                            }}
+                        />
+                    )}
                 </div>
             </main>
 
             <MobileNav />
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Confirmation Dialog */}
             <Confirmation
                 isOpen={deleteConfirmation.isOpen}
-                onClose={() => setDeleteConfirmation({ isOpen: false, transferId: null, transferName: "" })}
+                onClose={closeDeleteConfirmation}
                 onConfirm={confirmDelete}
                 title="Delete Transfer"
-                message={`Are you sure you want to delete "${deleteConfirmation.transferName}"? This action cannot be undone.`}
+                message={
+                    <div>
+                        <p>Are you sure you want to delete the transfer:</p>
+                        <p className="font-semibold text-red-600 mt-2">"{deleteConfirmation.transferName}"</p>
+                        <p className="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+                    </div>
+                }
                 confirmText="Delete"
                 cancelText="Cancel"
                 variant="danger"

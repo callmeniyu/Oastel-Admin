@@ -51,17 +51,38 @@ export interface ApiError {
     errors?: any
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002"
 
 export const transferApi = {
-    // Get all transfers
-    async getTransfers(params?: {
+    // Upload transfer image
+    uploadImage: async (file: File): Promise<{ success: boolean; data: { imageUrl: string; filename: string } }> => {
+        try {
+            const formData = new FormData()
+            formData.append("image", file)
+
+            const response = await fetch(`${API_BASE_URL}/api/upload/transfer-image`, {
+                method: "POST",
+                body: formData,
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            return await response.json()
+        } catch (error) {
+            console.error("Error uploading transfer image:", error)
+            throw error
+        }
+    },
+
+    // Get all transfers with optional filters and pagination
+    getTransfers: async (params?: {
         page?: number
         limit?: number
         type?: string
         status?: string
-        search?: string
-    }): Promise<TransfersResponse> {
+    }): Promise<TransfersResponse> => {
         try {
             const searchParams = new URLSearchParams()
 
@@ -69,13 +90,11 @@ export const transferApi = {
             if (params?.limit) searchParams.append("limit", params.limit.toString())
             if (params?.type) searchParams.append("type", params.type)
             if (params?.status) searchParams.append("status", params.status)
-            if (params?.search) searchParams.append("search", params.search)
 
             const response = await fetch(`${API_BASE_URL}/api/transfers?${searchParams}`)
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || "Failed to fetch transfers")
+                throw new Error(`HTTP error! status: ${response.status}`)
             }
 
             return await response.json()
@@ -85,14 +104,34 @@ export const transferApi = {
         }
     },
 
+    // Delete a transfer
+    deleteTransfer: async (id: string): Promise<{ success: boolean; message: string }> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/transfers/${id}`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            return await response.json()
+        } catch (error) {
+            console.error("Error deleting transfer:", error)
+            throw error
+        }
+    },
+
     // Get transfer by ID
-    async getTransferById(id: string): Promise<{ success: boolean; data: TransferType }> {
+    getTransferById: async (id: string): Promise<{ success: boolean; data: TransferType }> => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/transfers/${id}`)
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || "Failed to fetch transfer")
+                throw new Error(`HTTP error! status: ${response.status}`)
             }
 
             return await response.json()
@@ -103,7 +142,10 @@ export const transferApi = {
     },
 
     // Update transfer status
-    async updateTransferStatus(id: string, status: "active" | "sold"): Promise<{ success: boolean; data: TransferType }> {
+    updateTransferStatus: async (
+        id: string,
+        status: "active" | "sold"
+    ): Promise<{ success: boolean; message: string; data: TransferType }> => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/transfers/${id}`, {
                 method: "PATCH",
@@ -114,8 +156,7 @@ export const transferApi = {
             })
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || "Failed to update transfer status")
+                throw new Error(`HTTP error! status: ${response.status}`)
             }
 
             return await response.json()
@@ -125,44 +166,49 @@ export const transferApi = {
         }
     },
 
-    // Delete transfer
-    async deleteTransfer(id: string): Promise<{ success: boolean; message: string }> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/transfers/${id}`, {
-                method: "DELETE",
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || "Failed to delete transfer")
-            }
-
-            return await response.json()
-        } catch (error) {
-            console.error("Error deleting transfer:", error)
-            throw error
-        }
-    },
-
-    // Update transfer
-    async updateTransfer(id: string, data: Partial<TransferType>): Promise<{ success: boolean; data: TransferType }> {
+    // Update a transfer
+    updateTransfer: async (
+        id: string,
+        transferData: any
+    ): Promise<{ success: boolean; message: string; data: TransferType }> => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/transfers/${id}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(data),
+                body: JSON.stringify(transferData),
             })
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || "Failed to update transfer")
+                throw new Error(`HTTP error! status: ${response.status}`)
             }
 
             return await response.json()
         } catch (error) {
             console.error("Error updating transfer:", error)
+            throw error
+        }
+    },
+
+    // Create a new transfer
+    createTransfer: async (transferData: any): Promise<{ success: boolean; message: string; data: TransferType }> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/transfers`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(transferData),
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            return await response.json()
+        } catch (error) {
+            console.error("Error creating transfer:", error)
             throw error
         }
     },

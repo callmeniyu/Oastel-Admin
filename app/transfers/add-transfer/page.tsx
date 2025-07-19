@@ -22,6 +22,7 @@ import TransferCardPreview from "@/components/TransferCardPreview"
 import RichTextEditor from "@/components/RichTextEditor"
 import Confirmation from "@/components/ui/Confirmation"
 import { generateSlug, debounce } from "@/lib/utils"
+import { transferApi } from "@/lib/transferApi"
 
 // Schema validation
 const transferSchema = z
@@ -147,6 +148,8 @@ export default function AddTransferPage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [slugLoading, setSlugLoading] = useState(false)
     const [imagePreview, setImagePreview] = useState<string>("")
+    const [imageUploading, setImageUploading] = useState(false)
+    const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("")
     const [uploadMethod, setUploadMethod] = useState<"upload" | "url">("upload")
     const [newTag, setNewTag] = useState("")
     const [showClearConfirmation, setShowClearConfirmation] = useState(false)
@@ -202,6 +205,7 @@ export default function AddTransferPage() {
         getValues,
         reset,
         trigger,
+        clearErrors,
         formState: { errors, isValid },
     } = useForm<TransferFormData>({
         resolver: zodResolver(transferSchema),
@@ -472,6 +476,8 @@ export default function AddTransferPage() {
 
             // Reset other states first
             setImagePreview("")
+            setUploadedImageUrl("")
+            setImageUploading(false)
             setNewTag("")
             setUploadMethod("upload")
 
@@ -555,32 +561,52 @@ export default function AddTransferPage() {
     }
 
     // Handle image upload
-    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                // 5MB limit
-                toast.error("Image size should be less than 5MB ⚠️", {
-                    duration: 4000,
-                })
-                return
-            }
+        if (!file) return
 
-            const reader = new FileReader()
-            reader.onload = (e) => {
-                const result = e.target?.result as string
-                setImagePreview(result)
-                setValue("image", result)
+        // Validate file type
+        if (!file.type.startsWith("image/")) {
+            toast.error("Please select an image file ⚠️", {
+                duration: 3000,
+            })
+            return
+        }
+
+        // Validate file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image size should be less than 5MB ⚠️", {
+                duration: 4000,
+            })
+            return
+        }
+
+        setImageUploading(true)
+        setImagePreview(URL.createObjectURL(file))
+
+        try {
+            const response = await transferApi.uploadImage(file)
+
+            if (response.success) {
+                setUploadedImageUrl(response.data.imageUrl)
+                setValue("image", response.data.imageUrl)
+                clearErrors("image")
                 toast.success("Image uploaded successfully! 📸", {
                     duration: 3000,
                 })
+            } else {
+                throw new Error("Failed to upload image")
             }
-            reader.onerror = () => {
-                toast.error("Failed to upload image. Please try again. ❌", {
-                    duration: 4000,
-                })
-            }
-            reader.readAsDataURL(file)
+        } catch (error: any) {
+            console.error("Error uploading image:", error)
+            toast.error(error.message || "Failed to upload image. Please try again. ❌", {
+                duration: 4000,
+            })
+            // Clear preview on error
+            setImagePreview("")
+            setUploadedImageUrl("")
+        } finally {
+            setImageUploading(false)
         }
     }
 
@@ -639,14 +665,25 @@ export default function AddTransferPage() {
     }
 
     const onSubmit = async (data: TransferFormData) => {
-        setIsSubmitting(true)
         try {
+            // Check if image is uploaded to Cloudinary
+            if (!uploadedImageUrl && uploadMethod === "upload") {
+                toast.error("Please wait for the image to finish uploading", {
+                    duration: 3000,
+                })
+                return
+            }
+
+            setIsSubmitting(true)
+
             // All validation already done in handleSaveTransfer
             const validFaqs = data.details.faq.filter((faq) => faq.question.trim() && faq.answer.trim())
 
             // Prepare transfer data for API
             const transferData = {
                 ...data,
+                // Use Cloudinary URL for upload method, or use the URL/preview for URL method
+                image: uploadMethod === "upload" ? uploadedImageUrl : data.image || imagePreview,
                 status: "active",
                 details: {
                     ...data.details,
@@ -816,32 +853,67 @@ export default function AddTransferPage() {
 
                                     {uploadMethod === "upload" ? (
                                         <div>
-                                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-colors">
+                                            <div
+                                                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                                                    imageUploading
+                                                        ? "border-primary bg-primary/5"
+                                                        : "border-gray-300 hover:border-primary"
+                                                }`}
+                                            >
                                                 <input
                                                     type="file"
                                                     accept="image/*"
                                                     onChange={handleImageUpload}
                                                     className="hidden"
                                                     id="image-upload"
+                                                    disabled={imageUploading}
                                                 />
                                                 <label
                                                     htmlFor="image-upload"
-                                                    className="cursor-pointer flex flex-col items-center"
+                                                    className={`cursor-pointer flex flex-col items-center ${
+                                                        imageUploading ? "pointer-events-none" : ""
+                                                    }`}
                                                 >
-                                                    <FiUpload className="text-3xl text-gray-400 mb-2" />
-                                                    <span className="text-gray-600">Click to upload image</span>
-                                                    <span className="text-xs text-gray-400 mt-1">
-                                                        PNG, JPG, JPEG up to 5MB
-                                                    </span>
+                                                    {imageUploading ? (
+                                                        <>
+                                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                                                            <span className="text-primary font-medium">Uploading...</span>
+                                                            <span className="text-xs text-gray-400 mt-1">Please wait</span>
+                                                        </>
+                                                    ) : uploadedImageUrl ? (
+                                                        <>
+                                                            <FiCheck className="text-3xl text-green-500 mb-2" />
+                                                            <span className="text-green-600 font-medium">
+                                                                Image uploaded successfully!
+                                                            </span>
+                                                            <span className="text-xs text-gray-400 mt-1">
+                                                                Click to upload a different image
+                                                            </span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <FiUpload className="text-3xl text-gray-400 mb-2" />
+                                                            <span className="text-gray-600">Click to upload image</span>
+                                                            <span className="text-xs text-gray-400 mt-1">
+                                                                PNG, JPG, JPEG up to 5MB
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </label>
                                             </div>
                                             {imagePreview && (
-                                                <div className="mt-3">
+                                                <div className="mt-3 relative">
                                                     <img
                                                         src={imagePreview}
                                                         alt="Preview"
                                                         className="w-full h-32 object-cover rounded border"
                                                     />
+                                                    {uploadedImageUrl && (
+                                                        <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs flex items-center space-x-1">
+                                                            <FiCheck size={12} />
+                                                            <span>Uploaded</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -1531,7 +1603,12 @@ export default function AddTransferPage() {
                             <div className="w-full max-w-sm mx-auto">
                                 {watchTitle || watchImage ? (
                                     <TransferCardPreview
-                                        image={watchImage || imagePreview || "/images/placeholder-transfer.jpg"}
+                                        image={
+                                            uploadedImageUrl ||
+                                            watchImage ||
+                                            imagePreview ||
+                                            "/images/placeholder-transfer.jpg"
+                                        }
                                         title={watchTitle || "Sample Transfer Title"}
                                         tags={watchTags || ["Sample Tag"]}
                                         desc={watchDescription || "Sample transfer description..."}
