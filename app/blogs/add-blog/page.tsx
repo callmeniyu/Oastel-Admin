@@ -304,25 +304,37 @@ export default function AddBlogPage() {
                     <div className="flex justify-between items-center">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900">Add New Blog</h1>
-                            <p className="text-gray-600 mt-2">Create and publish a new blog post</p>
                         </div>
-                        <div className="flex space-x-4">
+                        <div className="flex items-center space-x-4">
+                            {/* Mobile Close Button */}
                             <button
                                 type="button"
-                                onClick={() => setShowClearConfirmation(true)}
-                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-2"
+                                onClick={() => router.push("/blogs")}
+                                className="md:hidden p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center"
+                                title="Close and go back to blogs"
                             >
-                                <FiX size={16} />
-                                <span>Clear Form</span>
+                                <FiX size={20} />
                             </button>
-                            <button
-                                type="button"
-                                onClick={handleShowErrors}
-                                className="px-4 py-2 bg-green-100/50 text-primary rounded-lg transition-colors duration-200 flex items-center space-x-2 hover:bg-green-100"
-                            >
-                                <FiCheck size={16} />
-                                <span>Validate Form</span>
-                            </button>
+
+                            {/* Desktop Buttons */}
+                            <div className="hidden md:flex space-x-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowClearConfirmation(true)}
+                                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-2"
+                                >
+                                    <FiX size={16} />
+                                    <span>Clear Form</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleShowErrors}
+                                    className="px-4 py-2 bg-green-100/50 text-primary rounded-lg transition-colors duration-200 flex items-center space-x-2 hover:bg-green-100"
+                                >
+                                    <FiCheck size={16} />
+                                    <span>Validate Form</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -640,7 +652,24 @@ export default function AddBlogPage() {
                                         </div>
                                     </div>
                                 )}
-
+                                <div className="flex flex-col space-y-3 md:hidden mb-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowClearConfirmation(true)}
+                                        className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center space-x-2"
+                                    >
+                                        <FiX size={16} />
+                                        <span>Clear Form</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleShowErrors}
+                                        className="w-full px-4 py-2 bg-green-100/50 text-primary rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 hover:bg-green-100"
+                                    >
+                                        <FiCheck size={16} />
+                                        <span>Validate Form</span>
+                                    </button>
+                                </div>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting || !hasValidated || !validationSuccess}
