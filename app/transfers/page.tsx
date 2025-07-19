@@ -39,41 +39,41 @@ export default function TransfersPage() {
     })
 
     // Fetch transfers from API
-    useEffect(() => {
-        const fetchTransfers = async () => {
-            try {
-                setIsLoading(true)
-                setError(null)
-                const response = await transferApi.getTransfers({ limit: 100 }) // Get all transfers
+    const fetchTransfers = async () => {
+        try {
+            setIsLoading(true)
+            setError(null)
+            const response = await transferApi.getTransfers({ limit: 100 }) // Get all transfers
 
-                // Transform the data to match the table structure
-                const transformedTransfers: TransferTableData[] = response.data.map((transfer: TransferType) => ({
-                    id: transfer._id,
-                    name: transfer.title,
-                    category: transfer.type,
-                    route: `${transfer.from} → ${transfer.to}`,
-                    price: `RM ${transfer.newPrice.toFixed(2)}`,
-                    status: (
-                        <StatusToggle
-                            key={`${transfer._id}-${transfer.status}`} // Add key to force re-render
-                            initialStatus={transfer.status}
-                            onStatusChange={(status) => handleStatusUpdate(transfer._id, status)}
-                        />
-                    ),
-                    originalStatus: transfer.status,
-                    _id: transfer._id,
-                }))
+            // Transform the data to match the table structure
+            const transformedTransfers: TransferTableData[] = response.data.map((transfer: TransferType) => ({
+                id: transfer._id,
+                name: transfer.title,
+                category: transfer.type,
+                route: `${transfer.from} → ${transfer.to}`,
+                price: `RM ${transfer.newPrice.toFixed(2)}`,
+                status: (
+                    <StatusToggle
+                        key={`${transfer._id}-${transfer.status}`} // Add key to force re-render
+                        initialStatus={transfer.status}
+                        onStatusChange={(status) => handleStatusUpdate(transfer._id, status)}
+                    />
+                ),
+                originalStatus: transfer.status,
+                _id: transfer._id,
+            }))
 
-                setTransfers(transformedTransfers)
-            } catch (err) {
-                console.error("Error fetching transfers:", err)
-                setError("Failed to load transfers. Please try again later.")
-                toast.error("Failed to load transfers")
-            } finally {
-                setIsLoading(false)
-            }
+            setTransfers(transformedTransfers)
+        } catch (err) {
+            console.error("Error fetching transfers:", err)
+            setError("Failed to load transfers. Please try again later.")
+            toast.error("Failed to load transfers")
+        } finally {
+            setIsLoading(false)
         }
+    }
 
+    useEffect(() => {
         fetchTransfers()
     }, [])
 
@@ -167,13 +167,37 @@ export default function TransfersPage() {
 
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
-                        <Link
-                            href={"/transfers/add-transfer"}
-                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-                        >
-                            + Add Transfer
-                        </Link>
+                        <div>
+                            <h1 className="text-2xl font-bold text-dark">Transfers</h1>
+                            <p className="text-gray-600 text-sm mt-1">Loading...</p>
+                        </div>
+                        <div className="flex space-x-3">
+                            <button
+                                disabled
+                                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed hidden md:block"
+                            >
+                                Refreshing...
+                            </button>
+                            <button
+                                disabled
+                                className="bg-gray-100 text-gray-700 p-2 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed md:hidden"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    />
+                                </svg>
+                            </button>
+                            <Link
+                                href={"/transfers/add-transfer"}
+                                className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                            >
+                                + Add Transfer
+                            </Link>
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
@@ -196,13 +220,37 @@ export default function TransfersPage() {
 
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
-                        <Link
-                            href={"/transfers/add-transfer"}
-                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-                        >
-                            + Add Transfer
-                        </Link>
+                        <div>
+                            <h1 className="text-2xl font-bold text-dark">Transfers</h1>
+                            <p className="text-gray-600 text-sm mt-1">Error loading transfers</p>
+                        </div>
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={fetchTransfers}
+                                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 hidden md:block"
+                            >
+                                Refresh
+                            </button>
+                            <button
+                                onClick={fetchTransfers}
+                                className="bg-gray-100 text-gray-700 p-2 rounded-lg text-sm font-medium hover:bg-gray-200 md:hidden"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    />
+                                </svg>
+                            </button>
+                            <Link
+                                href={"/transfers/add-transfer"}
+                                className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                            >
+                                + Add Transfer
+                            </Link>
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
@@ -230,13 +278,41 @@ export default function TransfersPage() {
 
             <main className="p-4">
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
-                    <Link
-                        href={"/transfers/add-transfer"}
-                        className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-                    >
-                        + Add Transfer
-                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold text-dark">Transfers</h1>
+                        <p className="text-gray-600 text-sm mt-1">
+                            {`${transfers.length} transfer${transfers.length !== 1 ? "s" : ""} total`}
+                        </p>
+                    </div>
+                    <div className="flex space-x-3">
+                        <button
+                            onClick={fetchTransfers}
+                            disabled={isLoading}
+                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hidden md:block"
+                        >
+                            {isLoading ? "Refreshing..." : "Refresh"}
+                        </button>
+                        <button
+                            onClick={fetchTransfers}
+                            disabled={isLoading}
+                            className="bg-gray-100 text-gray-700 p-2 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed md:hidden"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                            </svg>
+                        </button>
+                        <Link
+                            href={"/transfers/add-transfer"}
+                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90"
+                        >
+                            + Add Transfer
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
