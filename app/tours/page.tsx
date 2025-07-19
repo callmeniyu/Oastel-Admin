@@ -39,41 +39,41 @@ export default function ToursPage() {
     })
 
     // Fetch tours from API
-    const fetchTours = async () => {
-        try {
-            setIsLoading(true)
-            setError(null)
-            const response = await tourApi.getTours({ limit: 100 }) // Get all tours
-
-            // Transform the data to match the table structure
-            const transformedTours: TourTableData[] = response.data.map((tour: TourType) => ({
-                id: tour._id,
-                name: tour.title,
-                category: tour.type === "co-tour" ? "Co-Tour" : "Private",
-                period: tour.period,
-                price: `RM ${tour.newPrice.toFixed(2)}`,
-                status: (
-                    <StatusToggle
-                        key={`${tour._id}-${tour.status}`} // Add key to force re-render
-                        initialStatus={tour.status}
-                        onStatusChange={(status) => handleStatusUpdate(tour._id, status)}
-                    />
-                ),
-                originalStatus: tour.status,
-                _id: tour._id,
-            }))
-
-            setTours(transformedTours)
-        } catch (err) {
-            console.error("Error fetching tours:", err)
-            setError("Failed to load tours. Please try again later.")
-            toast.error("Failed to load tours")
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
     useEffect(() => {
+        const fetchTours = async () => {
+            try {
+                setIsLoading(true)
+                setError(null)
+                const response = await tourApi.getTours({ limit: 100 }) // Get all tours
+
+                // Transform the data to match the table structure
+                const transformedTours: TourTableData[] = response.data.map((tour: TourType) => ({
+                    id: tour._id,
+                    name: tour.title,
+                    category: tour.type === "co-tour" ? "Co-Tour" : "Private",
+                    period: tour.period,
+                    price: `RM ${tour.newPrice.toFixed(2)}`,
+                    status: (
+                        <StatusToggle
+                            key={`${tour._id}-${tour.status}`} // Add key to force re-render
+                            initialStatus={tour.status}
+                            onStatusChange={(status) => handleStatusUpdate(tour._id, status)}
+                        />
+                    ),
+                    originalStatus: tour.status,
+                    _id: tour._id,
+                }))
+
+                setTours(transformedTours)
+            } catch (err) {
+                console.error("Error fetching tours:", err)
+                setError("Failed to load tours. Please try again later.")
+                toast.error("Failed to load tours")
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
         fetchTours()
     }, [])
 
@@ -167,37 +167,13 @@ export default function ToursPage() {
 
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h1 className="text-2xl font-bold text-dark">Tours</h1>
-                            <p className="text-gray-600 text-sm mt-1">Loading...</p>
-                        </div>
-                        <div className="flex space-x-3">
-                            <button
-                                disabled
-                                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed hidden md:block"
-                            >
-                                Refreshing...
-                            </button>
-                            <button
-                                disabled
-                                className="bg-gray-100 text-gray-700 p-2 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed md:hidden"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                    />
-                                </svg>
-                            </button>
-                            <Link
-                                href={"/tours/add-tour"}
-                                className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-                            >
-                                + Add Tour
-                            </Link>
-                        </div>
+                        <h1 className="text-2xl font-bold text-dark">Tour Packages</h1>
+                        <Link
+                            href={"/tours/add-tour"}
+                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        >
+                            + Add Tour
+                        </Link>
                     </div>
 
                     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
@@ -220,37 +196,13 @@ export default function ToursPage() {
 
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h1 className="text-2xl font-bold text-dark">Tours</h1>
-                            <p className="text-gray-600 text-sm mt-1">Error loading tours</p>
-                        </div>
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={fetchTours}
-                                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 hidden md:block"
-                            >
-                                Refresh
-                            </button>
-                            <button
-                                onClick={fetchTours}
-                                className="bg-gray-100 text-gray-700 p-2 rounded-lg text-sm font-medium hover:bg-gray-200 md:hidden"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                    />
-                                </svg>
-                            </button>
-                            <Link
-                                href={"/tours/add-tour"}
-                                className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-                            >
-                                + Add Tour
-                            </Link>
-                        </div>
+                        <h1 className="text-2xl font-bold text-dark">Tour Packages</h1>
+                        <Link
+                            href={"/tours/add-tour"}
+                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        >
+                            + Add Tour
+                        </Link>
                     </div>
 
                     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
@@ -278,41 +230,13 @@ export default function ToursPage() {
 
             <main className="p-4">
                 <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold text-dark">Tours</h1>
-                        <p className="text-gray-600 text-sm mt-1">
-                            {`${tours.length} tour${tours.length !== 1 ? "s" : ""} total`}
-                        </p>
-                    </div>
-                    <div className="flex space-x-3">
-                        <button
-                            onClick={fetchTours}
-                            disabled={isLoading}
-                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hidden md:block"
-                        >
-                            {isLoading ? "Refreshing..." : "Refresh"}
-                        </button>
-                        <button
-                            onClick={fetchTours}
-                            disabled={isLoading}
-                            className="bg-gray-100 text-gray-700 p-2 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed md:hidden"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                />
-                            </svg>
-                        </button>
-                        <Link
-                            href={"/tours/add-tour"}
-                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90"
-                        >
-                            + Add Tour
-                        </Link>
-                    </div>
+                    <h1 className="text-2xl font-bold text-dark">Tour Packages</h1>
+                    <Link
+                        href={"/tours/add-tour"}
+                        className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                        + Add Tour
+                    </Link>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">

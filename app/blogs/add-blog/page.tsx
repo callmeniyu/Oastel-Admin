@@ -80,8 +80,6 @@ export default function AddBlogPage() {
     const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("")
     const [showClearConfirmation, setShowClearConfirmation] = useState(false)
     const [showValidationErrors, setShowValidationErrors] = useState(false)
-    const [validationSuccess, setValidationSuccess] = useState(false)
-    const [hasValidated, setHasValidated] = useState(false)
 
     // Section visibility states
     const [sectionsExpanded, setSectionsExpanded] = useState({
@@ -103,13 +101,9 @@ export default function AddBlogPage() {
     }
 
     const defaultValues = {
-        title: "",
-        slug: "",
-        description: "",
-        category: "Travel Tips" as const,
         views: 0,
         publishDate: getCurrentDate(),
-        image: "",
+        category: "Travel Tips" as const,
         content: "",
     }
 
@@ -156,23 +150,6 @@ export default function AddBlogPage() {
         }
     }, [watchTitle, watchSlug, debouncedSlugGeneration])
 
-    // Reset validation state when form values change after validation
-    useEffect(() => {
-        if (hasValidated) {
-            setHasValidated(false)
-            setValidationSuccess(false)
-            setShowValidationErrors(false)
-        }
-    }, [
-        watchedValues.title,
-        watchedValues.description,
-        watchedValues.category,
-        watchedValues.content,
-        watchedValues.image,
-        watchedValues.views,
-        watchedValues.publishDate,
-    ])
-
     // Handle image upload
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
@@ -210,12 +187,6 @@ export default function AddBlogPage() {
 
     // Handle form submission
     const onSubmit = async (data: BlogFormData) => {
-        // Check if form has been validated and passed
-        if (!hasValidated || !validationSuccess) {
-            toast.error("Please validate the form first before publishing")
-            return
-        }
-
         try {
             // Check if image is uploaded to Cloudinary
             if (!uploadedImageUrl) {
@@ -258,43 +229,18 @@ export default function AddBlogPage() {
 
     // Handle form clear
     const handleClearForm = () => {
-        // Reset form with complete default values
         reset(defaultValues)
-
-        // Clear image-related state
         setImagePreview("")
         setUploadedImageUrl("")
-
-        // Clear file input
-        const fileInput = document.getElementById("image-upload") as HTMLInputElement
-        if (fileInput) {
-            fileInput.value = ""
-        }
-
-        // Clear validation states
-        setShowValidationErrors(false)
-        setValidationSuccess(false)
-        setHasValidated(false)
-
-        // Close confirmation modal
         setShowClearConfirmation(false)
-
         toast.success("Form cleared successfully!")
     }
 
     // Show validation errors
-    const handleShowErrors = async () => {
-        // Clear previous validation state first
-        setShowValidationErrors(false)
-        setValidationSuccess(false)
-
-        // Trigger validation
-        const isFormValid = await trigger()
-
-        // Show validation results
+    const handleShowErrors = () => {
+        trigger()
         setShowValidationErrors(true)
-        setValidationSuccess(isFormValid)
-        setHasValidated(true)
+        setTimeout(() => setShowValidationErrors(false), 5000)
     }
 
     return (
@@ -304,37 +250,25 @@ export default function AddBlogPage() {
                     <div className="flex justify-between items-center">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900">Add New Blog</h1>
+                            <p className="text-gray-600 mt-2">Create and publish a new blog post</p>
                         </div>
-                        <div className="flex items-center space-x-4">
-                            {/* Mobile Close Button */}
+                        <div className="flex space-x-4">
                             <button
                                 type="button"
-                                onClick={() => router.push("/blogs")}
-                                className="md:hidden p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center"
-                                title="Close and go back to blogs"
+                                onClick={() => setShowClearConfirmation(true)}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-2"
                             >
-                                <FiX size={20} />
+                                <FiX size={16} />
+                                <span>Clear Form</span>
                             </button>
-
-                            {/* Desktop Buttons */}
-                            <div className="hidden md:flex space-x-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowClearConfirmation(true)}
-                                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-2"
-                                >
-                                    <FiX size={16} />
-                                    <span>Clear Form</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleShowErrors}
-                                    className="px-4 py-2 bg-green-100/50 text-primary rounded-lg transition-colors duration-200 flex items-center space-x-2 hover:bg-green-100"
-                                >
-                                    <FiCheck size={16} />
-                                    <span>Validate Form</span>
-                                </button>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={handleShowErrors}
+                                className="px-4 py-2 bg-green-100/50 text-primary rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                            >
+                                <FiCheck size={16} />
+                                <span>Validate</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -608,91 +542,16 @@ export default function AddBlogPage() {
                             </div>
 
                             {/* Submit Button */}
-                            <div className="mt-6 top-8">
-                                {/* Unified Validation Status Box */}
-                                {!hasValidated && (
-                                    <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg">
-                                        <div className="flex items-center">
-                                            <FiCheck className="h-5 w-5 text-blue-500 mr-2" />
-                                            <span className="font-medium">Validation Required</span>
-                                        </div>
-                                        <p className="text-sm mt-1">
-                                            Please click "Validate Form" to check for errors before publishing your blog.
-                                        </p>
-                                    </div>
-                                )}
-
-                                {hasValidated && validationSuccess && (
-                                    <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-                                        <div className="flex items-center">
-                                            <FiCheck className="h-5 w-5 text-green-500 mr-2" />
-                                            <span className="font-medium">All validation checks passed!</span>
-                                        </div>
-                                        <p className="text-sm mt-1">Your form is ready to be submitted.</p>
-                                    </div>
-                                )}
-
-                                {hasValidated && !validationSuccess && Object.keys(errors).length > 0 && (
-                                    <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-                                        <div className="flex items-start">
-                                            <FiX className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <h3 className="font-medium mb-2">Please fix the following errors:</h3>
-                                                <ul className="text-sm space-y-1">
-                                                    {Object.entries(errors).map(([field, error]) => (
-                                                        <li key={field} className="flex items-start">
-                                                            <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
-                                                            <span>
-                                                                <strong>{field}:</strong> {error.message}
-                                                            </span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="flex flex-col space-y-3 md:hidden mb-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowClearConfirmation(true)}
-                                        className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center space-x-2"
-                                    >
-                                        <FiX size={16} />
-                                        <span>Clear Form</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleShowErrors}
-                                        className="w-full px-4 py-2 bg-green-100/50 text-primary rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 hover:bg-green-100"
-                                    >
-                                        <FiCheck size={16} />
-                                        <span>Validate Form</span>
-                                    </button>
-                                </div>
+                            <div className="mt-6  top-8">
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting || !hasValidated || !validationSuccess}
-                                    className={`w-full py-3 px-6 rounded-lg focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors duration-200 flex items-center justify-center space-x-2 ${
-                                        isSubmitting || !hasValidated || !validationSuccess
-                                            ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                                            : "bg-primary text-white hover:bg-primary/90"
-                                    }`}
+                                    disabled={isSubmitting}
+                                    className="w-full bg-primary text-white py-3 px-6 rounded-lg hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center space-x-2"
                                 >
                                     {isSubmitting ? (
                                         <>
                                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                                             <span>Publishing...</span>
-                                        </>
-                                    ) : !hasValidated ? (
-                                        <>
-                                            <FiCheck size={18} />
-                                            <span>Validate Form First</span>
-                                        </>
-                                    ) : !validationSuccess ? (
-                                        <>
-                                            <FiX size={18} />
-                                            <span>Fix Errors to Publish</span>
                                         </>
                                     ) : (
                                         <>
@@ -705,6 +564,25 @@ export default function AddBlogPage() {
                         </div>
                     </div>
                 </form>
+
+                {/* Validation Errors Display */}
+                {showValidationErrors && Object.keys(errors).length > 0 && (
+                    <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                                <FiX className="h-5 w-5 text-red-500" />
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium">Please fix the following errors:</h3>
+                                <ul className="mt-1 text-xs list-disc list-inside">
+                                    {Object.entries(errors).map(([field, error]) => (
+                                        <li key={field}>{error.message}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Clear Confirmation Modal */}
                 {showClearConfirmation && (
