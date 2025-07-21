@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import AdminHeader from "@/components/admin/AdminHeader"
 import MobileNav from "@/components/admin/MobileNav"
 import DataTable from "@/components/admin/DataTable"
@@ -10,6 +11,7 @@ import { blogApi, BlogType } from "@/lib/blogApi"
 import { toast } from "react-hot-toast"
 
 export default function BlogsPage() {
+    const router = useRouter()
     const [blogs, setBlogs] = useState<BlogType[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -215,8 +217,7 @@ export default function BlogsPage() {
                                     const blog = findBlogById(row.id as string)
                                     if (blog) {
                                         console.log("Edit blog:", blog)
-                                        // TODO: Navigate to edit page
-                                        // router.push(`/blogs/edit/${blog._id}`)
+                                        router.push(`/blogs/${blog._id}`)
                                     }
                                 },
                                 onDelete: (row: any) => {
