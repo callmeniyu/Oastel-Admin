@@ -139,6 +139,7 @@ export default function AddBlogPage() {
     // Reset validation state when any form field changes
     useEffect(() => {
         if (hasValidated) {
+            console.log("Blog form field changed - resetting validation state")
             setHasValidated(false)
             setValidationSuccess(false)
             setShowValidationErrors(false)
@@ -152,8 +153,19 @@ export default function AddBlogPage() {
         watchPublishDate,
         watchImage,
         watchContent,
-        hasValidated,
+        // Removed hasValidated from dependencies to prevent interference with validation
     ])
+
+    // Auto-hide validation errors after 8 seconds
+    useEffect(() => {
+        if (showValidationErrors && !validationSuccess) {
+            const timer = setTimeout(() => {
+                setShowValidationErrors(false)
+            }, 8000) // 8 seconds for error messages
+
+            return () => clearTimeout(timer)
+        }
+    }, [showValidationErrors, validationSuccess])
 
     // Auto-generate slug when title changes
     const debouncedSlugGeneration = debounce(async (title: string) => {
@@ -268,18 +280,27 @@ export default function AddBlogPage() {
 
     // Show validation errors
     const handleShowErrors = async () => {
-        // Clear previous validation state first
+        console.log("Blog validation started...") // Debug log
+
+        // Clear previous validation state first (but don't reset hasValidated to avoid triggering useEffect)
         setShowValidationErrors(false)
         setValidationSuccess(false)
+
+        // Small delay to ensure state is cleared
+        await new Promise((resolve) => setTimeout(resolve, 100))
 
         try {
             // Trigger validation
             const isFormValid = await trigger()
+            console.log("Blog form validation result:", isFormValid) // Debug log
+            console.log("Current errors:", Object.keys(errors)) // Debug log
 
             if (isFormValid) {
                 setValidationSuccess(true)
+                console.log("Blog validation passed!") // Debug log
             } else {
                 setValidationSuccess(false)
+                console.log("Blog validation failed: Form errors detected") // Debug log
                 toast.error("Please fix the validation errors below", {
                     duration: 4000,
                 })
@@ -293,8 +314,10 @@ export default function AddBlogPage() {
         }
 
         // Show validation results
-        setShowValidationErrors(true)
         setHasValidated(true)
+        setShowValidationErrors(true)
+
+        console.log("Blog validation completed. Setting hasValidated: true, showValidationErrors: true") // Debug log
     }
 
     // Handle save blog button click - validate first, then save if valid
@@ -635,7 +658,7 @@ export default function AddBlogPage() {
                                     </div>
                                 )}
 
-                                {hasValidated && !validationSuccess && Object.keys(errors).length > 0 && (
+                                {hasValidated && !validationSuccess && (
                                     <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                                         <div className="flex items-start">
                                             <FiX className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />

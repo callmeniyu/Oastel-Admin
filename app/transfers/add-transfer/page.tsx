@@ -234,6 +234,14 @@ export default function AddTransferPage() {
     const watchFrom = watch("from")
     const watchTo = watch("to")
     const watchPickupOption = watch("details.pickupOption")
+    const watchMinimumPerson = watch("minimumPerson")
+    const watchMaximumPerson = watch("maximumPerson")
+    const watchDepartureTimes = watch("departureTimes")
+    const watchDetailsAbout = watch("details.about")
+    const watchDetailsItinerary = watch("details.itinerary")
+    const watchDetailsPickupLocation = watch("details.pickupLocation")
+    const watchDetailsNote = watch("details.note")
+    const watchDetailsFaq = watch("details.faq")
 
     // Hide validation errors when user starts making changes
     useEffect(() => {
@@ -245,6 +253,53 @@ export default function AddTransferPage() {
             return () => clearTimeout(timer)
         }
     }, [showValidationErrors])
+
+    // Reset validation state when any form field changes
+    useEffect(() => {
+        if (hasValidated) {
+            console.log("Transfer form field changed - resetting validation state")
+            setHasValidated(false)
+            setValidationSuccess(false)
+            setShowValidationErrors(false)
+        }
+    }, [
+        watchTitle,
+        watchType,
+        watchDescription,
+        watchImage,
+        watchTags,
+        watchDuration,
+        watchBookedCount,
+        watchOldPrice,
+        watchNewPrice,
+        watchChildPrice,
+        watchLabel,
+        watchStatus,
+        watchSlug,
+        watchFrom,
+        watchTo,
+        watchPickupOption,
+        watchMinimumPerson,
+        watchMaximumPerson,
+        watchDepartureTimes,
+        watchDetailsAbout,
+        watchDetailsItinerary,
+        watchDetailsPickupLocation,
+        watchDetailsNote,
+        watchDetailsFaq,
+        // Note: hasValidated is not included in dependencies to prevent interference with validation
+    ])
+
+    // Auto-hide validation errors after 8 seconds
+    useEffect(() => {
+        if (showValidationErrors && !validationSuccess) {
+            const timer = setTimeout(() => {
+                setShowValidationErrors(false)
+            }, 8000) // 8 seconds for error messages
+
+            return () => clearTimeout(timer)
+        }
+    }, [showValidationErrors, validationSuccess])
 
     // Clear form function
     const handleClearForm = () => {
@@ -505,7 +560,7 @@ export default function AddTransferPage() {
                                 type="button"
                                 onClick={handleClearForm}
                                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-2"
-                        >
+                            >
                                 <FiX size={16} />
                                 <span>Clear Form</span>
                             </button>
@@ -1427,7 +1482,7 @@ export default function AddTransferPage() {
                                         </div>
                                     )}
 
-                                    <div className="md:flex flex-col space-y-3 md:hidden mb-4">
+                                    <div className="flex flex-col space-y-3 md:hidden mb-4">
                                         <button
                                             type="button"
                                             onClick={() => setShowClearConfirmation(true)}
