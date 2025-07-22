@@ -207,8 +207,19 @@ export default function AddTourPage() {
     const watchBookedCount = watch("bookedCount")
     const watchOldPrice = watch("oldPrice")
     const watchNewPrice = watch("newPrice")
+    const watchChildPrice = watch("childPrice")
+    const watchMinimumPerson = watch("minimumPerson")
+    const watchMaximumPerson = watch("maximumPerson")
+    const watchPeriod = watch("period")
+    const watchStatus = watch("status")
     const watchLabel = watch("label")
     const watchSlug = watch("slug")
+    const watchDepartureTimes = watch("departureTimes")
+    const watchDetailsAbout = watch("details.about")
+    const watchDetailsItinerary = watch("details.itinerary")
+    const watchDetailsPickupLocation = watch("details.pickupLocation")
+    const watchDetailsNote = watch("details.note")
+    const watchDetailsFaq = watch("details.faq")
 
     // Handle adding tags
     const addTag = (field: any) => {
@@ -302,6 +313,51 @@ export default function AddTourPage() {
         }
     }, [watchTitle, setValue])
 
+    // Reset validation state when any form field changes
+    useEffect(() => {
+        if (hasValidated) {
+            console.log("Form field changed - resetting validation state")
+            setHasValidated(false)
+            setValidationSuccess(false)
+            setShowValidationErrors(false)
+        }
+    }, [
+        watchTitle,
+        watchType,
+        watchDescription,
+        watchImage,
+        watchTags,
+        watchDuration,
+        watchBookedCount,
+        watchOldPrice,
+        watchNewPrice,
+        watchChildPrice,
+        watchMinimumPerson,
+        watchMaximumPerson,
+        watchPeriod,
+        watchStatus,
+        watchLabel,
+        watchSlug,
+        watchDepartureTimes,
+        watchDetailsAbout,
+        watchDetailsItinerary,
+        watchDetailsPickupLocation,
+        watchDetailsNote,
+        watchDetailsFaq,
+        // Removed hasValidated from dependencies to prevent interference with validation
+    ])
+
+    // Auto-hide validation errors after 8 seconds
+    useEffect(() => {
+        if (showValidationErrors && !validationSuccess) {
+            const timer = setTimeout(() => {
+                setShowValidationErrors(false)
+            }, 8000) // 8 seconds for error messages
+
+            return () => clearTimeout(timer)
+        }
+    }, [showValidationErrors, validationSuccess])
+
     // Handle save tour button click - validate first, then save if valid
     const handleSaveTour = async () => {
         // Only proceed if form has been validated and passed
@@ -393,29 +449,64 @@ export default function AddTourPage() {
 
     // Show validation errors
     const handleShowErrors = async () => {
-        // Clear previous validation state first
+        console.log("Validation started...") // Debug log
+        console.log(
+            "Initial state - hasValidated:",
+            hasValidated,
+            "validationSuccess:",
+            validationSuccess,
+            "showValidationErrors:",
+            showValidationErrors
+        )
+
+        // Clear previous validation state first (but don't reset hasValidated to avoid triggering useEffect)
         setShowValidationErrors(false)
         setValidationSuccess(false)
 
+        // Small delay to ensure state is cleared
+        await new Promise((resolve) => setTimeout(resolve, 100))
+
         // Trigger validation
         const isFormValid = await trigger()
+        const currentErrors = Object.keys(errors)
+        console.log("Form validation result:", isFormValid) // Debug log
+        console.log("Current errors:", currentErrors) // Debug log
 
         // Additional custom validation
         if (isFormValid) {
             const currentData = getValues()
             const validFaqs = currentData.details.faq.filter((faq) => faq.question.trim() && faq.answer.trim())
+            console.log("Valid FAQs count:", validFaqs.length) // Debug log
+
             if (validFaqs.length === 0) {
                 setValidationSuccess(false)
+                console.log("Validation failed: No valid FAQs") // Debug log
             } else {
                 setValidationSuccess(true)
+                console.log("Validation passed!") // Debug log
             }
         } else {
             setValidationSuccess(false)
+            console.log("Validation failed: Form errors detected") // Debug log
         }
 
         // Show validation results
-        setShowValidationErrors(true)
         setHasValidated(true)
+        setShowValidationErrors(true)
+
+        console.log("Validation completed. Setting hasValidated: true, showValidationErrors: true") // Debug log
+
+        // Additional debug - check state after a brief delay
+        setTimeout(() => {
+            console.log(
+                "State after validation - hasValidated:",
+                hasValidated,
+                "validationSuccess:",
+                validationSuccess,
+                "showValidationErrors:",
+                showValidationErrors
+            )
+        }, 200)
     }
 
     return (
@@ -1122,7 +1213,7 @@ export default function AddTourPage() {
                                     </div>
                                 )}
 
-                                {hasValidated && !validationSuccess && Object.keys(errors).length > 0 && (
+                                {hasValidated && !validationSuccess && (
                                     <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                                         <div className="flex items-start">
                                             <FiX className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
@@ -1263,6 +1354,18 @@ export default function AddTourPage() {
                                                             </span>
                                                         </li>
                                                     )}
+                                                    {/* Custom FAQ validation error */}
+                                                    {hasValidated &&
+                                                        !validationSuccess &&
+                                                        Object.keys(errors).length === 0 && (
+                                                            <li className="flex items-start">
+                                                                <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
+                                                                <span>
+                                                                    <strong>FAQ:</strong> Please add at least one complete
+                                                                    FAQ with both question and answer.
+                                                                </span>
+                                                            </li>
+                                                        )}
                                                 </ul>
                                             </div>
                                         </div>

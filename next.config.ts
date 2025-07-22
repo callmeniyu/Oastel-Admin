@@ -28,6 +28,24 @@ const nextConfig: NextConfig = {
                 pathname: "/images/**",
             },
             {
+                protocol: "http",
+                hostname: "192.168.43.50",
+                port: "3002",
+                pathname: "/images/**",
+            },
+            {
+                protocol: "http",
+                hostname: "192.168.236.50",
+                port: "3002",
+                pathname: "/images/**",
+            },
+            {
+                protocol: "http",
+                hostname: "192.168.43.50",
+                port: "3002",
+                pathname: "/uploads/**",
+            },
+            {
                 protocol: "https",
                 hostname: "res.cloudinary.com",
                 pathname: "/**",
