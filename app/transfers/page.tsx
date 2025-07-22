@@ -167,7 +167,7 @@ export default function TransfersPage() {
 
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
+                        <h1 className="text-2xl font-bold text-dark">Transfers</h1>
                         <Link
                             href={"/transfers/add-transfer"}
                             className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
@@ -196,7 +196,7 @@ export default function TransfersPage() {
 
                 <main className="p-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
+                        <h1 className="text-2xl font-bold text-dark">Transfers</h1>
                         <Link
                             href={"/transfers/add-transfer"}
                             className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
@@ -230,7 +230,7 @@ export default function TransfersPage() {
 
             <main className="p-4">
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold text-dark">Transfer Packages</h1>
+                    <h1 className="text-2xl font-bold text-dark">Transfers</h1>
                     <Link
                         href={"/transfers/add-transfer"}
                         className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
