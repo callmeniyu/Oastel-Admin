@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
             },
             {
                 protocol: "http",
-                hostname: "192.168.43.50",
+                hostname: "192.168.163.50",
                 port: "3002",
                 pathname: "/images/**",
             },
@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
             },
             {
                 protocol: "http",
-                hostname: "192.168.43.50",
+                hostname: "192.168.163.50",
                 port: "3002",
                 pathname: "/uploads/**",
             },

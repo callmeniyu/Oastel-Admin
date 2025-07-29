@@ -1,348 +1,730 @@
-"use client"
-import AdminHeader from "@/components/admin/AdminHeader"
-import MobileNav from "@/components/admin/MobileNav"
-import { useState } from "react"
-import { FiChevronLeft, FiChevronRight, FiClock } from "react-icons/fi"
-import { useRouter } from "next/navigation"
+"use client";
+import AdminHeader from "@/components/admin/AdminHeader";
+import MobileNav from "@/components/admin/MobileNav";
+import { useState, useEffect } from "react";
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiClock,
+  FiUsers,
+  FiRefreshCw,
+} from "react-icons/fi";
+import { useRouter } from "next/navigation";
+import StatusToggle from "@/components/admin/StatusToggle";
 
-// Types
-type Booking = {
-    id: string
-    type: "tour" | "transfer"
-    title: string
-    time: string
-    user: string
-    persons: {
-        adults: number
-        children?: number
-    }
-    pickupLocation?: string
-    phone?: string
-}
+type Package = {
+  id: string;
+  title: string;
+  type: "tour" | "transfer";
+  duration?: "half-day" | "full-day"; // Only for tours
+  currentBookings: number;
+  maxSlots: number;
+  startTime: string;
+  price: string;
+};
+
+type BlackoutDate = {
+  _id: string;
+  date: string;
+  packageType: "tour" | "transfer";
+};
 
 export default function BookingsPage() {
-    const today = new Date()
-    const [currentDate, setCurrentDate] = useState(today)
-    const [selectedDate, setSelectedDate] = useState(today)
-    const [activeTab, setActiveTab] = useState<"tours" | "transfers">("tours")
-    const router = useRouter()
+  const today = new Date();
+  const [currentDate, setCurrentDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [activeTab, setActiveTab] = useState<"tours" | "transfers">("tours");
+  const [blackoutDates, setBlackoutDates] = useState<BlackoutDate[]>([]);
+  const [realBookings, setRealBookings] = useState<any[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [isLoadingPackages, setIsLoadingPackages] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const router = useRouter();
 
-    // Generate dummy data
-    const bookingsData: Record<string, Booking[]> = {
-        // Today's bookings
-        [formatDate(today)]: [
-            {
-                id: "BK001",
-                type: "tour",
-                title: "Full Day Land Rover",
-                time: "08:30 AM",
-                user: "Alex Cooper",
-                persons: { adults: 2, children: 1 },
-                pickupLocation: "Tanah Rata",
-                phone: "012-3456789",
-            },
-            {
-                id: "BK002",
-                type: "transfer",
-                title: "CH → KL",
-                time: "02:00 PM",
-                user: "Sarah Lim",
-                persons: { adults: 3 },
-                pickupLocation: "Tanah Rata",
-                phone: "012-3456789",
-            },
-            {
-                id: "BK003",
-                type: "tour",
-                title: "Sunrise Tour",
-                time: "05:00 AM",
-                user: "Raj Patel",
-                persons: { adults: 4 },
-                pickupLocation: "Tanah Rata",
-                phone: "012-3456789",
-            },
-        ],
-        // Tomorrow's bookings
-        [formatDate(getNextDay(today))]: [
-            {
-                id: "BK004",
-                type: "tour",
-                title: "Mossy Forest Adventure",
-                time: "09:00 AM",
-                user: "Emma Watson",
-                persons: { adults: 2 },
-                pickupLocation: "Tanah Rata",
-                phone: "012-3456789",
-            },
-        ],
-        // Day after tomorrow
-        [formatDate(getNextDay(today, 2))]: [
-            {
-                id: "BK005",
-                type: "transfer",
-                title: "CH → Taman Negara",
-                time: "11:00 AM",
-                user: "John Doe",
-                persons: { adults: 1, children: 2 },
-                pickupLocation: "Tanah Rata",
-                phone: "012-3456789",
-            },
-            {
-                id: "BK006",
-                type: "tour",
-                title: "Tea Plantation Tour",
-                time: "10:30 AM",
-                user: "Lisa Ray",
-                persons: { adults: 3 },
-                pickupLocation: "Tanah Rata",
-                phone: "012-3456789",
-            },
-        ],
+  const handleRefresh = async () => {
+    fetchBlackoutDates();
+    fetchRealBookings();
+    fetchPackages();
+  };
+
+  useEffect(() => {
+    fetchBlackoutDates();
+    fetchRealBookings();
+    fetchPackages();
+
+    // Set up auto-refresh for booking counts every 30 seconds
+    const autoRefreshInterval = setInterval(() => {
+      fetchRealBookings();
+    }, 30000); // 30 seconds
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(autoRefreshInterval);
+  }, []);
+
+  useEffect(() => {
+    fetchRealBookings();
+  }, [selectedDate, activeTab]);
+
+  const fetchPackages = async () => {
+    try {
+      setIsLoadingPackages(true);
+      const [toursResponse, transfersResponse] = await Promise.all([
+        fetch("/api/tours"),
+        fetch("/api/transfers"),
+      ]);
+
+      const toursData = await toursResponse.json();
+      const transfersData = await transfersResponse.json();
+
+      const allPackages = [
+        ...(toursData.tours || []).map((tour: any) => ({
+          ...tour,
+          packageType: "tour",
+        })),
+        ...(transfersData.transfers || []).map((transfer: any) => ({
+          ...transfer,
+          packageType: "transfer",
+        })),
+      ];
+
+      setPackages(allPackages);
+    } catch (error) {
+      console.error("Error fetching packages:", error);
+    } finally {
+      setIsLoadingPackages(false);
     }
+  };
 
-    // Get bookings for selected date
-    const selectedDateBookings = bookingsData[formatDate(selectedDate)] || []
-    const tours = selectedDateBookings.filter((b) => b.type === "tour")
-    const transfers = selectedDateBookings.filter((b) => b.type === "transfer")
-
-    // Generate days for the current month view
-    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()
-
-    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay()
-
-    const navigateMonth = (direction: "prev" | "next") => {
-        const newDate = new Date(currentDate)
-        newDate.setMonth(direction === "prev" ? currentDate.getMonth() - 1 : currentDate.getMonth() + 1)
-        setCurrentDate(newDate)
+  const fetchBlackoutDates = async () => {
+    try {
+      const res = await fetch("/api/blackout-dates");
+      const data = await res.json();
+      if (data.success) {
+        setBlackoutDates(data.data || []);
+      } else {
+        console.error("Failed to fetch blackout dates", data.error);
+        setBlackoutDates([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch blackout dates", error);
+      setBlackoutDates([]);
     }
+  };
 
-    const handleDateClick = (day: number) => {
-        const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-        if (clickedDate >= today) {
-            setSelectedDate(clickedDate)
+  const fetchRealBookings = async () => {
+    try {
+      setIsLoadingBookings(true);
+      const res = await fetch(
+        `/api/bookings?packageType=${
+          activeTab === "tours" ? "tour" : "transfer"
+        }`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setRealBookings(data.bookings || data.data || []);
+        setLastUpdated(new Date()); // Update timestamp when data is successfully fetched
+      } else {
+        console.error("Failed to fetch bookings:", data.error);
+        setRealBookings([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch real bookings", error);
+      setRealBookings([]);
+    } finally {
+      setIsLoadingBookings(false);
+    }
+  };
+
+  const isBlackoutDate = (date: string, packageType: "tour" | "transfer") => {
+    return blackoutDates.some(
+      (bd) => bd.date === date && bd.packageType === packageType
+    );
+  };
+
+  const toggleStatusForDate = async (
+    packageId: string,
+    packageType: "tour" | "transfer",
+    date: string,
+    currentStatus: "active" | "sold"
+  ) => {
+    // For simplicity, toggle status by adding/removing blackout date
+    try {
+      if (currentStatus === "active") {
+        // Add blackout date
+        const res = await fetch("/api/blackout-dates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, packageType }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchBlackoutDates();
         }
+      } else {
+        // Remove blackout date using new endpoint
+        const res = await fetch("/api/blackout-dates/remove", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, packageType }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchBlackoutDates();
+        }
+      }
+    } catch (error) {
+      console.error("Failed to toggle status", error);
+    }
+  };
+
+  // Process real bookings data into Package format
+  const processBookingsIntoPackages = (
+    bookings: any[],
+    date: Date
+  ): Package[] => {
+    const dateStr = formatDate(date);
+    const processedPackages: Package[] = [];
+
+    // Ensure bookings is an array
+    const safeBookings = Array.isArray(bookings) ? bookings : [];
+
+    // Filter bookings for the selected date
+    const dateBookings = safeBookings.filter((booking) => {
+      if (!booking || !booking.date) return false;
+      // Debug: log booking date and selected date
+      // console.log('Booking:', booking.date, 'Selected:', dateStr);
+      // Try to match date part only, ignoring time and timezone
+      let bookingDateStr;
+      if (booking.date.length >= 10) {
+        bookingDateStr = booking.date.slice(0, 10); // YYYY-MM-DD
+      } else {
+        bookingDateStr = formatDateFromString(booking.date);
+      }
+      // Compare to selected date string
+      return bookingDateStr === dateStr;
+    });
+
+    // Group bookings by package ID and time
+    const packageMap = new Map<string, any>();
+
+    dateBookings.forEach((booking) => {
+      if (!booking.packageId || !booking.packageId._id) return;
+
+      const key = `${booking.packageId._id}-${booking.time}`;
+      if (!packageMap.has(key)) {
+        packageMap.set(key, {
+          id: booking.packageId._id,
+          title: booking.packageId?.title || `${booking.packageType} Package`,
+          type: booking.packageType,
+          duration:
+            booking.packageId?.period?.toLowerCase() ||
+            (booking.packageType === "tour" ? "half-day" : undefined),
+          currentBookings: 0,
+          maxSlots: booking.packageId?.maximumPerson || 15,
+          startTime: booking.time,
+          price: `RM ${booking.packageId?.newPrice || booking.total}`,
+          bookings: [],
+        });
+      }
+
+      const packageData = packageMap.get(key);
+      packageData.currentBookings += booking.adults + booking.children;
+      packageData.bookings.push(booking);
+    });
+
+    // Convert map to array
+    packageMap.forEach((packageData) => {
+      processedPackages.push(packageData);
+    });
+
+    // If no bookings for this date, show available packages from database
+    if (
+      processedPackages.length === 0 &&
+      Array.isArray(packages) &&
+      packages.length > 0
+    ) {
+      const availablePackages = packages
+        .filter((pkg) => pkg && pkg.packageType === activeTab.slice(0, -1)) // Remove 's' from 'tours'/'transfers'
+        .map((pkg) => ({
+          id: pkg._id,
+          title: pkg.title || "Package",
+          type: pkg.packageType as "tour" | "transfer",
+          duration:
+            pkg.period?.toLowerCase() ||
+            (pkg.packageType === "tour" ? "half-day" : undefined),
+          currentBookings: 0,
+          maxSlots: pkg.maximumPerson || 15,
+          startTime: pkg.departureTimes?.[0] || pkg.times?.[0] || "Multiple",
+          price: `RM ${pkg.newPrice || 0}`,
+          bookings: [],
+        }));
+
+      processedPackages.push(...availablePackages);
     }
 
-    // Helper functions
-    function formatDate(date: Date): string {
-        return date.toISOString().split("T")[0]
-    }
+    return processedPackages;
+  };
 
-    function getNextDay(date: Date, days = 1): Date {
-        const newDate = new Date(date)
-        newDate.setDate(newDate.getDate() + days)
-        return newDate
-    }
+  const selectedDatePackages = processBookingsIntoPackages(
+    realBookings,
+    selectedDate
+  );
+  const tours = selectedDatePackages.filter((p) => p.type === "tour");
+  const transfers = selectedDatePackages.filter((p) => p.type === "transfer");
 
-    function isSameDay(date1: Date, date2: Date): boolean {
-        return formatDate(date1) === formatDate(date2)
-    }
+  // Generate days for the current month view
+  const daysInMonth = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth() + 1,
+    0
+  ).getDate();
+  const firstDayOfMonth = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    1
+  ).getDay();
 
-    function isBeforeToday(date: Date): boolean {
-        return date < today && !isSameDay(date, today)
-    }
+  const navigateMonth = (direction: "prev" | "next") => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(
+      direction === "prev"
+        ? currentDate.getMonth() - 1
+        : currentDate.getMonth() + 1
+    );
+    setCurrentDate(newDate);
+  };
 
-    function renderDay(day: number) {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-        const hasBookings = bookingsData[formatDate(date)]?.length > 0
-        const isSelected = isSameDay(date, selectedDate)
-        const isDisabled = isBeforeToday(date)
-
-        return (
-            <button
-                key={day}
-                onClick={() => handleDateClick(day)}
-                disabled={isDisabled}
-                className={`min-h-16 p-1 border ${
-                    isDisabled
-                        ? "bg-gray-100 text-gray-400"
-                        : isSelected
-                        ? "bg-primary/10 border-primary"
-                        : hasBookings
-                        ? "bg-primary/5 border-gray-100"
-                        : "border-gray-100"
-                } ${isSameDay(date, today) ? "border-2 border-primary" : ""}`}
-            >
-                <div className="text-right text-sm mb-1">{day}</div>
-                {hasBookings && <div className="w-2 h-2 bg-primary rounded-full mx-auto"></div>}
-            </button>
-        )
+  const handleDateClick = (day: number) => {
+    const clickedDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      day
+    );
+    if (clickedDate >= today) {
+      setSelectedDate(clickedDate);
     }
+  };
+
+  // Helper functions
+  function formatDate(date: Date): string {
+    // Fix timezone offset issues by using local date components
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDateFromString(dateString: string): string {
+    // Handle date strings more safely to prevent offset issues
+    const date = new Date(dateString + "T12:00:00"); // Add noon time to prevent timezone shifts
+    return formatDate(date);
+  }
+
+  function getNextDay(date: Date, days = 1): Date {
+    const newDate = new Date(date);
+    newDate.setDate(newDate.getDate() + days);
+    return newDate;
+  }
+
+  function isSameDay(date1: Date, date2: Date): boolean {
+    return formatDate(date1) === formatDate(date2);
+  }
+
+  function isBeforeToday(date: Date): boolean {
+    return date < today && !isSameDay(date, today);
+  }
+
+  function renderDay(day: number) {
+    const date = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      day
+    );
+    // Only show dot if there are actual bookings for this date
+    const dateStr = formatDate(date);
+    const hasBookings =
+      Array.isArray(realBookings) &&
+      realBookings.some((booking) => {
+        if (!booking || !booking.date) return false;
+        let bookingDateStr;
+        if (booking.date.length >= 10) {
+          bookingDateStr = booking.date.slice(0, 10);
+        } else {
+          bookingDateStr = formatDateFromString(booking.date);
+        }
+        return bookingDateStr === dateStr;
+      });
+    const isSelected = isSameDay(date, selectedDate);
+    const isDisabled = isBeforeToday(date);
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-16">
-            <AdminHeader />
+      <button
+        key={day}
+        onClick={() => handleDateClick(day)}
+        disabled={isDisabled}
+        className={`min-h-16 p-1 border ${
+          isDisabled
+            ? "bg-gray-100 text-gray-400"
+            : isSelected
+            ? "bg-primary/10 border-primary"
+            : hasBookings
+            ? "bg-primary/5 border-gray-100"
+            : "border-gray-100"
+        } ${isSameDay(date, today) ? "border-2 border-primary" : ""}`}
+      >
+        <div className="text-right text-sm mb-1">{day}</div>
+        {hasBookings && (
+          <div className="w-2 h-2 bg-primary rounded-full mx-auto"></div>
+        )}
+      </button>
+    );
+  }
 
-            <main className="p-4">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold text-dark">Bookings</h1>
-                    <button
-                        onClick={() => router.push("/bookings/history")}
-                        className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                        title="View Booking History"
-                    >
-                        <FiClock className="text-xl" />
-                    </button>
-                </div>
+  return (
+    <div className="min-h-screen bg-gray-50 pb-16">
+      <AdminHeader />
 
-                {/* Calendar Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <button onClick={() => navigateMonth("prev")} className="p-1 rounded-full hover:bg-gray-100">
-                            <FiChevronLeft className="text-xl" />
-                        </button>
-                        <h2 className="text-lg font-semibold">
-                            {currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                        </h2>
-                        <button onClick={() => navigateMonth("next")} className="p-1 rounded-full hover:bg-gray-100">
-                            <FiChevronRight className="text-xl" />
-                        </button>
-                    </div>
-
-                    {/* Day headers */}
-                    <div className="grid grid-cols-7 gap-1 mb-2">
-                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                            <div key={day} className="text-center text-sm font-medium text-light p-2">
-                                {day}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Calendar days */}
-                    <div className="grid grid-cols-7 gap-1">
-                        {/* Empty cells for days before the 1st */}
-                        {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                            <div key={`empty-${i}`} className="min-h-16"></div>
-                        ))}
-
-                        {/* Days of the month */}
-                        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(renderDay)}
-                    </div>
-                </div>
-
-                {/* Selected Date Bookings */}
-                <div>
-                    <div className="flex justify-between items-center mb-3">
-                        <h2 className="text-lg font-semibold">
-                            {isSameDay(selectedDate, today)
-                                ? "Today's Bookings"
-                                : selectedDate.toLocaleDateString("en-US", {
-                                      weekday: "long",
-                                      month: "short",
-                                      day: "numeric",
-                                  })}
-                        </h2>
-                        <button
-                            onClick={() => router.push(`/bookings/daily-packages?date=${formatDate(selectedDate)}`)}
-                            className="px-3 py-1 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
-                        >
-                            View Packages
-                        </button>
-                    </div>
-
-                    {selectedDateBookings.length === 0 ? (
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 text-center">
-                            <p className="text-light">No bookings for this date</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {/* Show tabs for all dates */}
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-100">
-                                {/* Tab Headers */}
-                                <div className="flex border-b border-gray-100">
-                                    <button
-                                        onClick={() => setActiveTab("tours")}
-                                        className={`flex-1 px-4 py-3 text-sm font-medium ${
-                                            activeTab === "tours"
-                                                ? "text-primary border-b-2 border-primary bg-primary/5"
-                                                : "text-light hover:text-dark"
-                                        }`}
-                                    >
-                                        Tours ({tours.length})
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab("transfers")}
-                                        className={`flex-1 px-4 py-3 text-sm font-medium ${
-                                            activeTab === "transfers"
-                                                ? "text-primary border-b-2 border-primary bg-primary/5"
-                                                : "text-light hover:text-dark"
-                                        }`}
-                                    >
-                                        Transfers ({transfers.length})
-                                    </button>
-                                </div>
-
-                                {/* Tab Content */}
-                                <div className="p-4">
-                                    {activeTab === "tours" ? (
-                                        tours.length > 0 ? (
-                                            <div className="space-y-3">
-                                                {tours.map((booking) => (
-                                                    <BookingCard key={booking.id} booking={booking} />
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-light text-center py-4">
-                                                No tours scheduled for{" "}
-                                                {isSameDay(selectedDate, today) ? "today" : "this date"}
-                                            </p>
-                                        )
-                                    ) : transfers.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {transfers.map((booking) => (
-                                                <BookingCard key={booking.id} booking={booking} />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-light text-center py-4">
-                                            No transfers scheduled for{" "}
-                                            {isSameDay(selectedDate, today) ? "today" : "this date"}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </main>
-
-            <MobileNav />
+      <main className="p-4">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-dark">Bookings</h1>
+            {lastUpdated && (
+              <p className="text-sm text-gray-500 mt-1">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+                <span className="ml-2 text-xs text-green-600">
+                  Auto-refresh every 30s
+                </span>
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 p-2 rounded-lg bg-gray-200 text-gray-500 hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:p-3 sm:px-4"
+              title="Refresh Data"
+            >
+              <FiRefreshCw className="text-lg sm:text-xl" />
+            </button>
+            <button
+              onClick={() => router.push("/bookings/history")}
+              className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors sm:p-3"
+              title="View Booking History"
+            >
+              <FiClock className="text-lg sm:text-xl" />
+            </button>
+          </div>
         </div>
-    )
+
+        {/* Calendar Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={() => navigateMonth("prev")}
+              className="p-1 rounded-full hover:bg-gray-100"
+            >
+              <FiChevronLeft className="text-xl" />
+            </button>
+            <h2 className="text-lg font-semibold">
+              {currentDate.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </h2>
+            <button
+              onClick={() => navigateMonth("next")}
+              className="p-1 rounded-full hover:bg-gray-100"
+            >
+              <FiChevronRight className="text-xl" />
+            </button>
+          </div>
+
+          {/* Day headers */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div
+                key={day}
+                className="text-center text-sm font-medium text-light p-2"
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar days */}
+          <div className="grid grid-cols-7 gap-1">
+            {/* Empty cells for days before the 1st */}
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+              <div key={`empty-${i}`} className="min-h-16"></div>
+            ))}
+
+            {/* Days of the month */}
+            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+              renderDay
+            )}
+          </div>
+        </div>
+
+        {/* Selected Date Packages */}
+        <div>
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold">
+              {isSameDay(selectedDate, today)
+                ? "Today's Packages"
+                : selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric",
+                  })}
+            </h2>
+            <p className="text-sm text-light">
+              Available tours and transfers with booking status
+            </p>
+          </div>
+
+          {selectedDatePackages.length === 0 ? (
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 text-center">
+              <p className="text-light">No packages available for this date</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Tabs */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100">
+                {/* Tab Headers */}
+                <div className="flex border-b border-gray-100">
+                  <button
+                    onClick={() => setActiveTab("tours")}
+                    className={`flex-1 px-4 py-3 text-sm font-medium ${
+                      activeTab === "tours"
+                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                        : "text-light hover:text-dark"
+                    }`}
+                  >
+                    Tours ({tours.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("transfers")}
+                    className={`flex-1 px-4 py-3 text-sm font-medium ${
+                      activeTab === "transfers"
+                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                        : "text-light hover:text-dark"
+                    }`}
+                  >
+                    Transfers ({transfers.length})
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                <div className="p-4">
+                  {activeTab === "tours" ? (
+                    tours.length > 0 ? (
+                      <div className="space-y-4">
+                        {tours.map((pkg) => (
+                          <PackageCard
+                            key={pkg.id}
+                            package={pkg}
+                            selectedDate={selectedDate}
+                            isBlackoutDate={isBlackoutDate}
+                            formatDate={formatDate}
+                            toggleStatusForDate={toggleStatusForDate}
+                            isLoadingBookings={isLoadingBookings}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-light text-center py-4">
+                        No tours available for{" "}
+                        {isSameDay(selectedDate, today) ? "today" : "this date"}
+                      </p>
+                    )
+                  ) : transfers.length > 0 ? (
+                    <div className="space-y-4">
+                      {transfers.map((pkg) => (
+                        <PackageCard
+                          key={pkg.id}
+                          package={pkg}
+                          selectedDate={selectedDate}
+                          isBlackoutDate={isBlackoutDate}
+                          formatDate={formatDate}
+                          toggleStatusForDate={toggleStatusForDate}
+                          isLoadingBookings={isLoadingBookings}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-light text-center py-4">
+                      No transfers available for{" "}
+                      {isSameDay(selectedDate, today) ? "today" : "this date"}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Summary Stats */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                <h3 className="font-semibold text-dark mb-3">
+                  {isSameDay(selectedDate, today) ? "Today's" : "Daily"}{" "}
+                  Overview
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-primary/5 rounded-lg">
+                    <div className="text-2xl font-bold text-primary">
+                      {tours.reduce((sum, p) => sum + p.currentBookings, 0)}
+                    </div>
+                    <div className="text-sm text-light">Tour Bookings</div>
+                  </div>
+                  <div className="text-center p-3 bg-secondary/5 rounded-lg">
+                    <div className="text-2xl font-bold text-secondary">
+                      {transfers.reduce((sum, p) => sum + p.currentBookings, 0)}
+                    </div>
+                    <div className="text-sm text-light">Transfer Bookings</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <MobileNav />
+    </div>
+  );
 }
 
-// Booking Card Component
-function BookingCard({ booking }: { booking: Booking }) {
-    return (
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
-            <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                    <h3 className="font-medium">{booking.user}</h3>
-                    <p className="text-sm text-light">{booking.title}</p>
-                </div>
-                <span className="text-sm text-light">{booking.time}</span>
+// Package Card Component
+function PackageCard({
+  package: pkg,
+  selectedDate,
+  isBlackoutDate,
+  formatDate,
+  toggleStatusForDate,
+  isLoadingBookings,
+}: {
+  package: Package;
+  selectedDate: Date;
+  isBlackoutDate: (date: string, packageType: "tour" | "transfer") => boolean;
+  formatDate: (date: Date) => string;
+  toggleStatusForDate: (
+    packageId: string,
+    packageType: "tour" | "transfer",
+    date: string,
+    currentStatus: "active" | "sold"
+  ) => Promise<void>;
+  isLoadingBookings: boolean;
+}) {
+  const router = useRouter();
+
+  const handlePackageClick = () => {
+    const dateStr = formatDate(selectedDate);
+    router.push(
+      `/bookings/${pkg.id}?date=${dateStr}&time=${pkg.startTime}&type=${pkg.type}`
+    );
+  };
+  const getAvailabilityColor = () => {
+    const percentage = (pkg.currentBookings / pkg.maxSlots) * 100;
+    if (percentage >= 90) return "text-red-600";
+    if (percentage >= 70) return "text-yellow-600";
+    return "text-green-600";
+  };
+
+  const getAvailabilityBg = () => {
+    const percentage = (pkg.currentBookings / pkg.maxSlots) * 100;
+    if (percentage >= 90) return "bg-red-50 border-red-200";
+    if (percentage >= 70) return "bg-yellow-50 border-yellow-200";
+    return "bg-green-50 border-green-200";
+  };
+
+  const getDurationBadge = () => {
+    if (pkg.type === "tour" && pkg.duration) {
+      return (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            pkg.duration === "full-day"
+              ? "bg-blue-100 text-blue-800"
+              : "bg-purple-100 text-purple-800"
+          }`}
+        >
+          {pkg.duration === "full-day" ? "Full Day" : "Half Day"}
+        </span>
+      );
+    }
+    return null;
+  };
+
+  // Determine current status based on blackout dates
+  const isBlackedOut = isBlackoutDate(formatDate(selectedDate), pkg.type);
+  const currentStatus: "active" | "sold" = isBlackedOut ? "sold" : "active";
+
+  const handleStatusToggle = async (newStatus: "active" | "sold") => {
+    await toggleStatusForDate(
+      pkg.id,
+      pkg.type,
+      formatDate(selectedDate),
+      currentStatus
+    );
+  };
+
+  return (
+    <div
+      className={`p-4 rounded-lg border ${getAvailabilityBg()} cursor-pointer hover:shadow-md transition-shadow`}
+      onClick={handlePackageClick}
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-dark">{pkg.title}</h3>
+            {getDurationBadge()}
+          </div>
+          <div className="flex items-center gap-4 text-sm text-light">
+            <div className="flex items-center gap-1">
+              <FiClock className="text-xs" />
+              <span>{pkg.startTime}</span>
             </div>
-
-            <div className="space-y-1">
-                <div className="text-sm text-light">
-                    {booking.persons.adults} adult{booking.persons.adults !== 1 ? "s" : ""}
-                    {booking.persons.children
-                        ? `, ${booking.persons.children} child${booking.persons.children !== 1 ? "ren" : ""}`
-                        : ""}
-                </div>
-
-                {booking.pickupLocation && (
-                    <div className="text-sm text-light">
-                        <span className="font-medium">Pickup:</span> {booking.pickupLocation}
-                    </div>
-                )}
-
-                {booking.phone && (
-                    <div className="text-sm text-light">
-                        <span className="font-medium">Phone:</span> {booking.phone}
-                    </div>
-                )}
-            </div>
+            <span className="font-medium text-primary">{pkg.price}</span>
+          </div>
         </div>
-    )
+        <div className="flex flex-col items-end gap-2">
+          {/* Prevent StatusToggle click from bubbling to card */}
+          <div onClick={(e) => e.stopPropagation()}>
+            <StatusToggle
+              initialStatus={currentStatus}
+              onStatusChange={handleStatusToggle}
+              disabled={isLoadingBookings}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Booking Status */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <FiUsers className="text-light" />
+          <span className="text-sm text-light">Bookings:</span>
+          <span className={`text-sm font-medium ${getAvailabilityColor()}`}>
+            {pkg.currentBookings} / {pkg.maxSlots}
+          </span>
+        </div>
+
+        <div className="text-right">
+          <div className="text-xs text-light">
+            {pkg.maxSlots - pkg.currentBookings} slots available
+          </div>
+          <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
+            <div
+              className={`h-2 rounded-full ${
+                (pkg.currentBookings / pkg.maxSlots) * 100 >= 90
+                  ? "bg-red-500"
+                  : (pkg.currentBookings / pkg.maxSlots) * 100 >= 70
+                  ? "bg-yellow-500"
+                  : "bg-green-500"
+              }`}
+              style={{
+                width: `${(pkg.currentBookings / pkg.maxSlots) * 100}%`,
+              }}
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
