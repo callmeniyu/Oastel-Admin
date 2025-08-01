@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import AdminHeader from "@/components/admin/AdminHeader";
 import MobileNav from "@/components/admin/MobileNav";
 import StatsCard from "@/components/admin/StatsCard";
-import BookingCard from "@/components/admin/BookingCard";
+import { FiClock, FiUsers } from "react-icons/fi";
 
 interface Booking {
   _id?: string;
@@ -218,6 +218,12 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Function to format date consistently
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    return dateObj.toISOString().split("T")[0];
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
       <AdminHeader />
@@ -258,16 +264,31 @@ export default function DashboardPage() {
                 Loading recent bookings...
               </div>
             ) : recentBookings.length > 0 ? (
-              recentBookings.map((booking, index) => (
-                <BookingCard
-                  key={index}
-                  booking={{
-                    ...booking,
-                    id: booking.id ?? "",
-                    transfer: booking.transfer ?? undefined,
-                  }}
-                />
-              ))
+              recentBookings.map((booking, index) => {
+                // Convert booking to package format for the PackageCard
+                const pkg = {
+                  id: booking.id || "",
+                  title: booking.tour || booking.transfer || "Unknown Package",
+                  type: booking.transfer
+                    ? ("transfer" as const)
+                    : ("tour" as const),
+                  duration: "half-day", // Default value
+                  currentBookings: 1,
+                  maxSlots: 10,
+                  startTime: booking.time || "N/A",
+                  price: "Booked",
+                  status: booking.status || "Confirmed",
+                };
+
+                return (
+                  <PackageCard
+                    key={index}
+                    package={pkg}
+                    bookingDate={booking.date || ""}
+                    status={booking.status || "Confirmed"}
+                  />
+                );
+              })
             ) : (
               <div className="text-center py-4 text-gray-500">
                 No recent bookings found
@@ -312,6 +333,89 @@ export default function DashboardPage() {
       </main>
 
       <MobileNav />
+    </div>
+  );
+}
+
+// Simple version of PackageCard for dashboard
+function PackageCard({
+  package: pkg,
+  bookingDate,
+  status,
+}: {
+  package: {
+    id: string;
+    title: string;
+    type: "tour" | "transfer";
+    startTime: string;
+    price: string;
+    currentBookings: number;
+    maxSlots: number;
+    duration?: string;
+    status?: string;
+  };
+  bookingDate: string;
+  status: string;
+}) {
+  const router = useRouter();
+
+  const handlePackageClick = () => {
+    router.push(`/bookings`);
+  };
+
+  const getStatusColor = () => {
+    if (status.toLowerCase() === "cancelled") return "bg-red-100 text-red-700";
+    if (status.toLowerCase() === "pending")
+      return "bg-yellow-100 text-yellow-700";
+    return "bg-green-100 text-green-700";
+  };
+
+  return (
+    <div
+      className="p-4 rounded-lg border border-gray-200 bg-white cursor-pointer hover:shadow-md transition-shadow"
+      onClick={handlePackageClick}
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-dark">{pkg.title}</h3>
+            {pkg.duration && (
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  pkg.duration === "full-day"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-purple-100 text-purple-800"
+                }`}
+              >
+                {pkg.duration === "full-day" ? "Full Day" : "Half Day"}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            <div className="flex items-center gap-1">
+              <FiClock className="text-xs" />
+              <span>{pkg.startTime}</span>
+            </div>
+            <div className="text-xs text-gray-500">{bookingDate}</div>
+          </div>
+        </div>
+        <div
+          className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor()}`}
+        >
+          {status}
+        </div>
+      </div>
+
+      {/* Package Type */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <FiUsers className="text-gray-500" />
+          <span className="text-sm text-gray-500">Type:</span>
+          <span className="text-sm font-medium">
+            {pkg.type === "tour" ? "Tour" : "Transfer"}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

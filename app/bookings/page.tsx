@@ -21,12 +21,7 @@ type Package = {
   maxSlots: number;
   startTime: string;
   price: string;
-};
-
-type BlackoutDate = {
-  _id: string;
-  date: string;
-  packageType: "tour" | "transfer";
+  isAvailable: boolean; // Slot availability status
 };
 
 export default function BookingsPage() {
@@ -34,7 +29,6 @@ export default function BookingsPage() {
   const [currentDate, setCurrentDate] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
   const [activeTab, setActiveTab] = useState<"tours" | "transfers">("tours");
-  const [blackoutDates, setBlackoutDates] = useState<BlackoutDate[]>([]);
   const [realBookings, setRealBookings] = useState<any[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
@@ -43,13 +37,11 @@ export default function BookingsPage() {
   const router = useRouter();
 
   const handleRefresh = async () => {
-    fetchBlackoutDates();
     fetchRealBookings();
     fetchPackages();
   };
 
   useEffect(() => {
-    fetchBlackoutDates();
     fetchRealBookings();
     fetchPackages();
 
@@ -96,22 +88,6 @@ export default function BookingsPage() {
     }
   };
 
-  const fetchBlackoutDates = async () => {
-    try {
-      const res = await fetch("/api/blackout-dates");
-      const data = await res.json();
-      if (data.success) {
-        setBlackoutDates(data.data || []);
-      } else {
-        console.error("Failed to fetch blackout dates", data.error);
-        setBlackoutDates([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch blackout dates", error);
-      setBlackoutDates([]);
-    }
-  };
-
   const fetchRealBookings = async () => {
     try {
       setIsLoadingBookings(true);
@@ -136,45 +112,41 @@ export default function BookingsPage() {
     }
   };
 
-  const isBlackoutDate = (date: string, packageType: "tour" | "transfer") => {
-    return blackoutDates.some(
-      (bd) => bd.date === date && bd.packageType === packageType
-    );
-  };
-
-  const toggleStatusForDate = async (
+  // Toggle slot availability for a specific package, date, and time
+  const toggleSlotStatus = async (
     packageId: string,
     packageType: "tour" | "transfer",
     date: string,
+    time: string,
     currentStatus: "active" | "sold"
   ) => {
-    // For simplicity, toggle status by adding/removing blackout date
     try {
-      if (currentStatus === "active") {
-        // Add blackout date
-        const res = await fetch("/api/blackout-dates", {
-          method: "POST",
+      const newStatus = currentStatus === "active" ? false : true; // isAvailable boolean
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/timeslots/toggle-availability`,
+        {
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, packageType }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          fetchBlackoutDates();
+          body: JSON.stringify({
+            packageId,
+            packageType,
+            date,
+            time,
+            isAvailable: newStatus,
+          }),
         }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        // Refresh bookings data to reflect the change
+        await fetchRealBookings();
       } else {
-        // Remove blackout date using new endpoint
-        const res = await fetch("/api/blackout-dates/remove", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, packageType }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          fetchBlackoutDates();
-        }
+        console.error("Failed to toggle slot status:", data.error);
       }
     } catch (error) {
-      console.error("Failed to toggle status", error);
+      console.error("Failed to toggle slot status", error);
     }
   };
 
@@ -184,36 +156,27 @@ export default function BookingsPage() {
     date: Date
   ): Package[] => {
     const dateStr = formatDate(date);
-    const processedPackages: Package[] = [];
-
-    // Ensure bookings is an array
     const safeBookings = Array.isArray(bookings) ? bookings : [];
 
     // Filter bookings for the selected date
     const dateBookings = safeBookings.filter((booking) => {
       if (!booking || !booking.date) return false;
-      // Debug: log booking date and selected date
-      // console.log('Booking:', booking.date, 'Selected:', dateStr);
-      // Try to match date part only, ignoring time and timezone
       let bookingDateStr;
       if (booking.date.length >= 10) {
         bookingDateStr = booking.date.slice(0, 10); // YYYY-MM-DD
       } else {
         bookingDateStr = formatDateFromString(booking.date);
       }
-      // Compare to selected date string
       return bookingDateStr === dateStr;
     });
 
     // Group bookings by package ID and time
-    const packageMap = new Map<string, any>();
-
+    const bookingMap = new Map<string, any>();
     dateBookings.forEach((booking) => {
       if (!booking.packageId || !booking.packageId._id) return;
-
       const key = `${booking.packageId._id}-${booking.time}`;
-      if (!packageMap.has(key)) {
-        packageMap.set(key, {
+      if (!bookingMap.has(key)) {
+        bookingMap.set(key, {
           id: booking.packageId._id,
           title: booking.packageId?.title || `${booking.packageType} Package`,
           type: booking.packageType,
@@ -224,29 +187,44 @@ export default function BookingsPage() {
           maxSlots: booking.packageId?.maximumPerson || 15,
           startTime: booking.time,
           price: `RM ${booking.packageId?.newPrice || booking.total}`,
-          bookings: [],
+          isAvailable: true, // Default to available, will be updated with actual slot data
+          bookings: [], // <-- Fix: always initialize bookings array
         });
       }
-
-      const packageData = packageMap.get(key);
+      const packageData = bookingMap.get(key);
       packageData.currentBookings += booking.adults + booking.children;
       packageData.bookings.push(booking);
     });
 
-    // Convert map to array
-    packageMap.forEach((packageData) => {
-      processedPackages.push(packageData);
-    });
+    // Merge with all available packages for the selected tab
+    const availablePackages = Array.isArray(packages)
+      ? packages.filter(
+          (pkg) => pkg && pkg.packageType === activeTab.slice(0, -1)
+        )
+      : [];
 
-    // If no bookings for this date, show available packages from database
-    if (
-      processedPackages.length === 0 &&
-      Array.isArray(packages) &&
-      packages.length > 0
-    ) {
-      const availablePackages = packages
-        .filter((pkg) => pkg && pkg.packageType === activeTab.slice(0, -1)) // Remove 's' from 'tours'/'transfers'
-        .map((pkg) => ({
+    // For each available package, ensure it appears at least once (for each time slot if applicable)
+    const mergedPackages: Package[] = [];
+    availablePackages.forEach((pkg) => {
+      // Find all bookings for this package
+      const matchingBookings = dateBookings.filter(
+        (b) => b.packageId?._id === pkg._id
+      );
+      // If there are bookings, use their time slots
+      if (matchingBookings.length > 0) {
+        // For each time slot with bookings, use the bookingMap entry
+        const timeSlots = Array.from(
+          new Set(matchingBookings.map((b) => b.time))
+        );
+        timeSlots.forEach((time) => {
+          const key = `${pkg._id}-${time}`;
+          if (bookingMap.has(key)) {
+            mergedPackages.push(bookingMap.get(key));
+          }
+        });
+      } else {
+        // No bookings for this package on this date, show as available
+        mergedPackages.push({
           id: pkg._id,
           title: pkg.title || "Package",
           type: pkg.packageType as "tour" | "transfer",
@@ -257,13 +235,12 @@ export default function BookingsPage() {
           maxSlots: pkg.maximumPerson || 15,
           startTime: pkg.departureTimes?.[0] || pkg.times?.[0] || "Multiple",
           price: `RM ${pkg.newPrice || 0}`,
-          bookings: [],
-        }));
+          isAvailable: true, // Default to available
+        });
+      }
+    });
 
-      processedPackages.push(...availablePackages);
-    }
-
-    return processedPackages;
+    return mergedPackages;
   };
 
   const selectedDatePackages = processBookingsIntoPackages(
@@ -385,7 +362,7 @@ export default function BookingsPage() {
     <div className="min-h-screen bg-gray-50 pb-16">
       <AdminHeader />
 
-      <main className="p-4">
+      <main className="p-4 pb-20 md:pb-4">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-dark">Bookings</h1>
@@ -524,9 +501,8 @@ export default function BookingsPage() {
                             key={pkg.id}
                             package={pkg}
                             selectedDate={selectedDate}
-                            isBlackoutDate={isBlackoutDate}
                             formatDate={formatDate}
-                            toggleStatusForDate={toggleStatusForDate}
+                            toggleSlotStatus={toggleSlotStatus}
                             isLoadingBookings={isLoadingBookings}
                           />
                         ))}
@@ -544,9 +520,8 @@ export default function BookingsPage() {
                           key={pkg.id}
                           package={pkg}
                           selectedDate={selectedDate}
-                          isBlackoutDate={isBlackoutDate}
                           formatDate={formatDate}
-                          toggleStatusForDate={toggleStatusForDate}
+                          toggleSlotStatus={toggleSlotStatus}
                           isLoadingBookings={isLoadingBookings}
                         />
                       ))}
@@ -595,19 +570,18 @@ export default function BookingsPage() {
 function PackageCard({
   package: pkg,
   selectedDate,
-  isBlackoutDate,
   formatDate,
-  toggleStatusForDate,
+  toggleSlotStatus,
   isLoadingBookings,
 }: {
   package: Package;
   selectedDate: Date;
-  isBlackoutDate: (date: string, packageType: "tour" | "transfer") => boolean;
   formatDate: (date: Date) => string;
-  toggleStatusForDate: (
+  toggleSlotStatus: (
     packageId: string,
     packageType: "tour" | "transfer",
     date: string,
+    time: string,
     currentStatus: "active" | "sold"
   ) => Promise<void>;
   isLoadingBookings: boolean;
@@ -620,7 +594,9 @@ function PackageCard({
       `/bookings/${pkg.id}?date=${dateStr}&time=${pkg.startTime}&type=${pkg.type}`
     );
   };
+
   const getAvailabilityColor = () => {
+    if (!pkg.isAvailable) return "text-red-600";
     const percentage = (pkg.currentBookings / pkg.maxSlots) * 100;
     if (percentage >= 90) return "text-red-600";
     if (percentage >= 70) return "text-yellow-600";
@@ -628,6 +604,7 @@ function PackageCard({
   };
 
   const getAvailabilityBg = () => {
+    if (!pkg.isAvailable) return "bg-red-50 border-red-200";
     const percentage = (pkg.currentBookings / pkg.maxSlots) * 100;
     if (percentage >= 90) return "bg-red-50 border-red-200";
     if (percentage >= 70) return "bg-yellow-50 border-yellow-200";
@@ -651,18 +628,7 @@ function PackageCard({
     return null;
   };
 
-  // Determine current status based on blackout dates
-  const isBlackedOut = isBlackoutDate(formatDate(selectedDate), pkg.type);
-  const currentStatus: "active" | "sold" = isBlackedOut ? "sold" : "active";
-
-  const handleStatusToggle = async (newStatus: "active" | "sold") => {
-    await toggleStatusForDate(
-      pkg.id,
-      pkg.type,
-      formatDate(selectedDate),
-      currentStatus
-    );
-  };
+  // Status display is now handled by the badge, no toggle functionality in card
 
   return (
     <div
@@ -684,13 +650,14 @@ function PackageCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {/* Prevent StatusToggle click from bubbling to card */}
-          <div onClick={(e) => e.stopPropagation()}>
-            <StatusToggle
-              initialStatus={currentStatus}
-              onStatusChange={handleStatusToggle}
-              disabled={isLoadingBookings}
-            />
+          <div
+            className={`px-3 py-1 rounded-full text-xs ${
+              pkg.isAvailable
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {pkg.isAvailable ? "Available" : "Sold Out"}
           </div>
         </div>
       </div>
