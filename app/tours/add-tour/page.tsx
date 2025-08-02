@@ -22,7 +22,7 @@ import TourCardPreview from "@/components/TourCardPreview";
 import Confirmation from "@/components/ui/Confirmation";
 import { generateSlug, debounce } from "@/lib/utils";
 
-// Schema validation
+// Schema validatiemon
 const tourSchema = z
   .object({
     title: z
