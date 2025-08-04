@@ -10,6 +10,7 @@ import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { tourApi, TourType } from "@/lib/tourApi";
 import { toast } from "react-hot-toast";
+import { FiRefreshCw } from "react-icons/fi";
 
 interface TourTableData {
   id: string;
@@ -17,9 +18,9 @@ interface TourTableData {
   category: string;
   period: string;
   price: string | number; // Allow both for formatted display
-  status: React.ReactNode; // Change to ReactNode to allow status toggle component
+  status: string; // Change to string for simple display
   _id: string;
-  originalStatus: "active" | "sold"; // Keep original status for toggle functionality
+  originalStatus: "active" | "sold"; // Keep original status for reference
   [key: string]: any; // Index signature for DataTable compatibility
 }
 
@@ -39,88 +40,39 @@ export default function ToursPage() {
   });
 
   // Fetch tours from API
-  useEffect(() => {
-    const fetchTours = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await tourApi.getTours({ limit: 100 }); // Get all tours
-
-        // Transform the data to match the table structure
-        const transformedTours: TourTableData[] = response.data.map(
-          (tour: TourType) => ({
-            id: tour._id,
-            name: tour.title,
-            category: tour.type === "co-tour" ? "Co-Tour" : "Private",
-            period: tour.period,
-            price: `RM ${tour.newPrice.toFixed(2)}`,
-            status: (
-              <StatusToggle
-                key={`${tour._id}-${tour.status}`} // Add key to force re-render
-                initialStatus={tour.status}
-                onStatusChange={(status) =>
-                  handleStatusUpdate(tour._id, status)
-                }
-              />
-            ),
-            originalStatus: tour.status,
-            _id: tour._id,
-          })
-        );
-
-        setTours(transformedTours);
-      } catch (err) {
-        console.error("Error fetching tours:", err);
-        setError("Failed to load tours. Please try again later.");
-        toast.error("Failed to load tours");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTours();
-  }, []);
-
-  // Handle tour status update
-  const handleStatusUpdate = async (
-    tourId: string,
-    newStatus: "active" | "sold"
-  ) => {
+  const fetchTours = async () => {
     try {
-      await tourApi.updateTourStatus(tourId, newStatus);
+      setIsLoading(true);
+      setError(null);
+      const response = await tourApi.getTours({ limit: 100 }); // Get all tours
 
-      // Update the local state to trigger re-render
-      setTours((prevTours) =>
-        prevTours.map((tour) =>
-          tour._id === tourId
-            ? {
-                ...tour,
-                originalStatus: newStatus,
-                status: (
-                  <StatusToggle
-                    key={`${tourId}-${newStatus}`} // Add key to force re-render
-                    initialStatus={newStatus}
-                    onStatusChange={(status) =>
-                      handleStatusUpdate(tourId, status)
-                    }
-                  />
-                ),
-              }
-            : tour
-        )
+      // Transform the data to match the table structure
+      const transformedTours: TourTableData[] = response.data.map(
+        (tour: TourType) => ({
+          id: tour._id,
+          name: tour.title,
+          category: tour.type === "co-tour" ? "Co-Tour" : "Private",
+          period: tour.period,
+          price: `RM ${tour.newPrice.toFixed(2)}`,
+          status: tour.status === "active" ? "Active" : "Sold Out",
+          originalStatus: tour.status,
+          _id: tour._id,
+        })
       );
 
-      toast.success(
-        `Tour status updated to ${
-          newStatus === "active" ? "Active" : "Sold Out"
-        }`
-      );
-    } catch (error) {
-      console.error("Error updating tour status:", error);
-      toast.error("Failed to update tour status");
-      throw error; // Re-throw to let StatusToggle handle the error state
+      setTours(transformedTours);
+    } catch (err) {
+      console.error("Error fetching tours:", err);
+      setError("Failed to load tours. Please try again later.");
+      toast.error("Failed to load tours");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchTours();
+  }, []);
 
   // Handle tour deletion
   const handleDelete = async (id: string) => {
@@ -243,14 +195,35 @@ export default function ToursPage() {
 
       <main className="p-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-dark">Tours</h1>
-
-          <Link
-            href={"/tours/add-tour"}
-            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            + Add Tour
-          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-dark">Tours</h1>
+            <p className="text-gray-600 text-sm mt-1">
+              {isLoading
+                ? "Loading..."
+                : `${tours.length} tour${tours.length !== 1 ? "s" : ""} total`}
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={fetchTours}
+              disabled={isLoading}
+              className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center md:px-4"
+              title="Refresh tours"
+            >
+              <FiRefreshCw
+                className={`w-4 h-4 ${isLoading ? "animate-spin" : ""} md:mr-2`}
+              />
+              <span className="hidden md:inline">
+                {isLoading ? "Refreshing..." : "Refresh"}
+              </span>
+            </button>
+            <Link
+              href={"/tours/add-tour"}
+              className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90"
+            >
+              + Add Tour
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">

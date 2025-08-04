@@ -15,6 +15,8 @@ import {
   FiToggleRight,
   FiCheck,
   FiX,
+  FiChevronDown,
+  FiChevronUp,
 } from "react-icons/fi";
 
 interface Customer {
@@ -48,6 +50,8 @@ export default function PackageDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [timeSlots, setTimeSlots] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isTimeslotSectionExpanded, setIsTimeslotSectionExpanded] =
+    useState(false);
 
   useEffect(() => {
     if (packageId && date && time) {
@@ -209,41 +213,46 @@ export default function PackageDetailsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm border">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <FiUser className="text-blue-600 text-xl" />
+        <div className="flex  md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8">
+          {/* Total Customers */}
+          <div className="bg-white p-3 md:p-6 rounded-xl shadow-sm border flex-1 flex items-center md:block">
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              <div className="p-2 md:p-3 bg-blue-100 rounded-lg">
+                <FiUser className="text-blue-600 text-lg md:text-xl" />
               </div>
-              <div>
-                <p className="text-light text-sm">Total Customers</p>
-                <p className="text-2xl font-bold text-dark">{totalCustomers}</p>
+              <div className="text-center md:text-left">
+                <p className="text-light text-xs md:text-sm">Total Customers</p>
+                <p className="text-lg md:text-2xl font-bold text-dark">
+                  {totalCustomers}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <FiCalendar className="text-green-600 text-xl" />
+          {/* Total Bookings */}
+          <div className="bg-white p-3 md:p-6 rounded-xl shadow-sm border flex-1 flex items-center md:block">
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              <div className="p-2 md:p-3 bg-green-100 rounded-lg">
+                <FiCalendar className="text-green-600 text-lg md:text-xl" />
               </div>
-              <div>
-                <p className="text-light text-sm">Total Bookings</p>
-                <p className="text-2xl font-bold text-dark">
+              <div className="text-center md:text-left">
+                <p className="text-light text-xs md:text-sm ">Total Bookings</p>
+                <p className="text-lg md:text-2xl font-bold text-dark">
                   {customers.length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <FiClock className="text-primary text-xl" />
+          {/* Total Revenue */}
+          <div className="bg-white p-3 md:p-6 rounded-xl shadow-sm border flex-1 flex items-center md:block">
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              <div className="p-2 md:p-3 bg-primary/10 rounded-lg">
+                <FiClock className="text-primary text-lg md:text-xl" />
               </div>
-              <div>
-                <p className="text-light text-sm">Total Revenue</p>
-                <p className="text-2xl font-bold text-dark">
+              <div className="text-center md:text-left">
+                <p className="text-light text-xs md:text-sm">Total Revenue</p>
+                <p className="text-lg md:text-2xl font-bold text-dark">
                   RM {totalRevenue}
                 </p>
               </div>
@@ -253,8 +262,13 @@ export default function PackageDetailsPage() {
 
         {/* Time Slot Management */}
         <div className="bg-white rounded-xl shadow-sm border mb-8">
-          <div className="p-6 border-b flex justify-between items-center">
-            <div>
+          <button
+            onClick={() =>
+              setIsTimeslotSectionExpanded(!isTimeslotSectionExpanded)
+            }
+            className="w-full p-6 border-b flex justify-between items-center hover:bg-gray-50 transition-colors"
+          >
+            <div className="text-left">
               <h2 className="text-xl font-semibold text-dark">
                 Time Slot Management
               </h2>
@@ -262,122 +276,134 @@ export default function PackageDetailsPage() {
                 Toggle availability for this package's time slots
               </p>
             </div>
-            <button
-              onClick={fetchTimeSlots}
-              className="px-4 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-medium"
-              title="Refresh Time Slots"
-            >
-              Refresh
-            </button>
-          </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fetchTimeSlots();
+                }}
+                className="px-4 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-medium"
+                title="Refresh Time Slots"
+              >
+                Refresh
+              </button>
+              {isTimeslotSectionExpanded ? (
+                <FiChevronUp className="text-xl text-gray-500" />
+              ) : (
+                <FiChevronDown className="text-xl text-gray-500" />
+              )}
+            </div>
+          </button>
 
-          <div className="p-6">
-            {timeSlots.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-light mb-2">
-                  No time slots found for this date
-                </p>
-                <p className="text-sm text-gray-500">
-                  Try selecting a different date or package
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {timeSlots.map((slot) => (
-                  <div
-                    key={slot.time}
-                    className={`p-5 rounded-xl border ${
-                      slot.isAvailable
-                        ? "border-green-200 bg-green-50"
-                        : "border-red-200 bg-red-50"
-                    } transition-all duration-300`}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <FiClock
-                            className={
-                              slot.isAvailable
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }
-                          />
-                          <h3 className="font-semibold text-dark text-lg">
-                            {slot.time}
-                          </h3>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <FiUser className="text-gray-500" />
-                          <p className="text-sm text-light">
-                            Booked:{" "}
-                            <span className="font-medium">
-                              {slot.bookedCount} / {slot.capacity}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                      <div
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          slot.isAvailable
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {slot.isAvailable ? "Available" : "Unavailable"}
-                      </div>
-                    </div>
-
-                    <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-                      <div
-                        className={`h-2 rounded-full ${
-                          (slot.bookedCount / slot.capacity) * 100 >= 90
-                            ? "bg-red-500"
-                            : (slot.bookedCount / slot.capacity) * 100 >= 70
-                            ? "bg-yellow-500"
-                            : "bg-green-500"
-                        }`}
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            (slot.bookedCount / slot.capacity) * 100
-                          )}%`,
-                        }}
-                      ></div>
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        toggleSlotAvailability(slot.time, slot.isAvailable)
-                      }
-                      disabled={isUpdating}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+          {isTimeslotSectionExpanded && (
+            <div className="p-6">
+              {timeSlots.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-light mb-2">
+                    No time slots found for this date
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Try selecting a different date or package
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {timeSlots.map((slot) => (
+                    <div
+                      key={slot.time}
+                      className={`p-5 rounded-xl border ${
                         slot.isAvailable
-                          ? "bg-red-100 text-red-800 hover:bg-red-200"
-                          : "bg-green-100 text-green-800 hover:bg-green-200"
-                      } transition-colors disabled:opacity-50`}
+                          ? "border-green-200 bg-green-50"
+                          : "border-red-200 bg-red-50"
+                      } transition-all duration-300`}
                     >
-                      {isUpdating ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin"></div>
-                          <span>Updating...</span>
-                        </>
-                      ) : slot.isAvailable ? (
-                        <>
-                          <FiX className="text-red-800" />
-                          <span>Mark as Unavailable</span>
-                        </>
-                      ) : (
-                        <>
-                          <FiCheck className="text-green-800" />
-                          <span>Mark as Available</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <FiClock
+                              className={
+                                slot.isAvailable
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }
+                            />
+                            <h3 className="font-semibold text-dark text-lg">
+                              {slot.time}
+                            </h3>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <FiUser className="text-gray-500" />
+                            <p className="text-sm text-light">
+                              Booked:{" "}
+                              <span className="font-medium">
+                                {slot.bookedCount} / {slot.capacity}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            slot.isAvailable
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {slot.isAvailable ? "Available" : "Unavailable"}
+                        </div>
+                      </div>
+
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                        <div
+                          className={`h-2 rounded-full ${
+                            (slot.bookedCount / slot.capacity) * 100 >= 90
+                              ? "bg-red-500"
+                              : (slot.bookedCount / slot.capacity) * 100 >= 70
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (slot.bookedCount / slot.capacity) * 100
+                            )}%`,
+                          }}
+                        ></div>
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          toggleSlotAvailability(slot.time, slot.isAvailable)
+                        }
+                        disabled={isUpdating}
+                        className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                          slot.isAvailable
+                            ? "bg-red-100 text-red-800 hover:bg-red-200"
+                            : "bg-green-100 text-green-800 hover:bg-green-200"
+                        } transition-colors disabled:opacity-50`}
+                      >
+                        {isUpdating ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin"></div>
+                            <span>Updating...</span>
+                          </>
+                        ) : slot.isAvailable ? (
+                          <>
+                            <FiX className="text-red-800" />
+                            <span>Mark as Unavailable</span>
+                          </>
+                        ) : (
+                          <>
+                            <FiCheck className="text-green-800" />
+                            <span>Mark as Available</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Customer List */}

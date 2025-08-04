@@ -56,7 +56,7 @@ export default function BookingsPage() {
 
   useEffect(() => {
     fetchRealBookings();
-  }, [selectedDate, activeTab]);
+  }, [selectedDate]);
 
   const fetchPackages = async () => {
     try {
@@ -91,11 +91,8 @@ export default function BookingsPage() {
   const fetchRealBookings = async () => {
     try {
       setIsLoadingBookings(true);
-      const res = await fetch(
-        `/api/bookings?packageType=${
-          activeTab === "tours" ? "tour" : "transfer"
-        }`
-      );
+      // Fetch all bookings regardless of activeTab to get proper counts
+      const res = await fetch(`/api/bookings`);
       const data = await res.json();
       if (data.success) {
         setRealBookings(data.bookings || data.data || []);
@@ -247,8 +244,16 @@ export default function BookingsPage() {
     realBookings,
     selectedDate
   );
-  const tours = selectedDatePackages.filter((p) => p.type === "tour");
-  const transfers = selectedDatePackages.filter((p) => p.type === "transfer");
+
+  // Calculate counts for both tours and transfers from all bookings
+  const getAllPackagesForType = (packageType: "tour" | "transfer") => {
+    return processBookingsIntoPackages(realBookings, selectedDate).filter(
+      (p) => p.type === packageType
+    );
+  };
+
+  const tours = getAllPackagesForType("tour");
+  const transfers = getAllPackagesForType("transfer");
 
   // Generate days for the current month view
   const daysInMonth = new Date(
@@ -649,17 +654,7 @@ function PackageCard({
             <span className="font-medium text-primary">{pkg.price}</span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div
-            className={`px-3 py-1 rounded-full text-xs ${
-              pkg.isAvailable
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
-          >
-            {pkg.isAvailable ? "Available" : "Sold Out"}
-          </div>
-        </div>
+        {/* Removed the 'Available'/'Sold Out' tag from the top right */}
       </div>
 
       {/* Booking Status */}

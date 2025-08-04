@@ -1,136 +1,63 @@
 "use client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import MobileNav from "@/components/admin/MobileNav";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiArrowLeft, FiSearch } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
 // Types
 type HistoryBooking = {
-  id: string;
-  type: "tour" | "transfer";
-  title: string;
+  _id: string;
+  packageType: "tour" | "transfer";
+  packageId: {
+    _id: string;
+    title: string;
+  };
   date: string;
   time: string;
-  user: string;
-  persons: {
-    adults: number;
-    children?: number;
+  contactInfo: {
+    name: string;
+    email: string;
+    phone: string;
   };
-  amount: string;
+  adults: number;
+  children: number;
+  total: number;
+  status: "pending" | "confirmed" | "cancelled";
+  createdAt: string;
 };
 
 export default function BookingHistoryPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"tours" | "transfers">("tours");
   const [searchQuery, setSearchQuery] = useState("");
+  const [historyData, setHistoryData] = useState<HistoryBooking[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Dummy historical data
-  const historyData: HistoryBooking[] = [
-    // Tours History
-    {
-      id: "BK101",
-      type: "tour",
-      title: "Full Day Land Rover",
-      date: "2025-07-05",
-      time: "08:30 AM",
-      user: "Michael Chen",
-      persons: { adults: 2, children: 1 },
-      amount: "RM 450",
-    },
-    {
-      id: "BK102",
-      type: "tour",
-      title: "Sunrise + Half Day",
-      date: "2025-07-04",
-      time: "05:00 AM",
-      user: "Jessica Wong",
-      persons: { adults: 4 },
-      amount: "RM 600",
-    },
-    {
-      id: "BK103",
-      type: "tour",
-      title: "Mossy Forest Adventure",
-      date: "2025-07-03",
-      time: "09:00 AM",
-      user: "David Kumar",
-      persons: { adults: 2 },
-      amount: "RM 450",
-    },
-    {
-      id: "BK104",
-      type: "tour",
-      title: "Tea Plantation Tour",
-      date: "2025-07-02",
-      time: "10:30 AM",
-      user: "Amy Tan",
-      persons: { adults: 3, children: 2 },
-      amount: "RM 375",
-    },
-    {
-      id: "BK105",
-      type: "tour",
-      title: "Coral Hills Tour",
-      date: "2025-07-01",
-      time: "09:00 AM",
-      user: "Robert Lee",
-      persons: { adults: 2 },
-      amount: "RM 450",
-    },
+  useEffect(() => {
+    fetchBookingHistory();
+  }, []);
 
-    // Transfers History
-    {
-      id: "BK201",
-      type: "transfer",
-      title: "CH → KL",
-      date: "2025-07-06",
-      time: "02:00 PM",
-      user: "Sarah Johnson",
-      persons: { adults: 3 },
-      amount: "RM 180",
-    },
-    {
-      id: "BK202",
-      type: "transfer",
-      title: "CH → Taman Negara",
-      date: "2025-07-05",
-      time: "11:00 AM",
-      user: "Mark Wilson",
-      persons: { adults: 1, children: 2 },
-      amount: "RM 250",
-    },
-    {
-      id: "BK203",
-      type: "transfer",
-      title: "KL → CH",
-      date: "2025-07-04",
-      time: "03:00 PM",
-      user: "Linda Garcia",
-      persons: { adults: 2 },
-      amount: "RM 160",
-    },
-    {
-      id: "BK204",
-      type: "transfer",
-      title: "CH → Genting",
-      date: "2025-01-03",
-      time: "08:00 AM",
-      user: "Peter Singh",
-      persons: { adults: 4 },
-      amount: "RM 450",
-    },
-    {
-      id: "BK205",
-      type: "transfer",
-      title: "CH → Airport",
-      date: "2025-09-02",
-      time: "06:00 AM",
-      user: "Rachel Kim",
-      persons: { adults: 1 },
-      amount: "RM 120",
-    },
-  ];
+  const fetchBookingHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/bookings");
+      const data = await response.json();
+
+      if (data.success) {
+        const bookings = data.bookings || data.data || [];
+        setHistoryData(bookings);
+      } else {
+        console.error("Failed to fetch booking history:", data.error);
+        setHistoryData([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch booking history:", error);
+      setHistoryData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Helper function to format date for search
   const formatDateForSearch = (dateString: string) => {
@@ -159,7 +86,7 @@ export default function BookingHistoryPage() {
   // Filter data based on active tab and search query
   const filteredData = historyData.filter((booking) => {
     const matchesTab =
-      booking.type === (activeTab.slice(0, -1) as "tour" | "transfer");
+      booking.packageType === (activeTab.slice(0, -1) as "tour" | "transfer");
 
     if (searchQuery === "") {
       return matchesTab;
@@ -169,9 +96,9 @@ export default function BookingHistoryPage() {
     const dateFormats = formatDateForSearch(booking.date);
 
     const matchesSearch =
-      booking.user.toLowerCase().includes(query) ||
-      booking.title.toLowerCase().includes(query) ||
-      booking.id.toLowerCase().includes(query) ||
+      booking.contactInfo.name.toLowerCase().includes(query) ||
+      booking.packageId.title.toLowerCase().includes(query) ||
+      booking._id.toLowerCase().includes(query) ||
       // Date search formats
       dateFormats.iso.includes(query) ||
       dateFormats.readable.toLowerCase().includes(query) ||
@@ -194,7 +121,7 @@ export default function BookingHistoryPage() {
   // Calculate counts based on search results
   const getFilteredCount = (type: "tour" | "transfer") => {
     return historyData.filter((booking) => {
-      const matchesType = booking.type === type;
+      const matchesType = booking.packageType === type;
 
       if (searchQuery === "") {
         return matchesType;
@@ -204,9 +131,9 @@ export default function BookingHistoryPage() {
       const dateFormats = formatDateForSearch(booking.date);
 
       const matchesSearch =
-        booking.user.toLowerCase().includes(query) ||
-        booking.title.toLowerCase().includes(query) ||
-        booking.id.toLowerCase().includes(query) ||
+        booking.contactInfo.name.toLowerCase().includes(query) ||
+        booking.packageId.title.toLowerCase().includes(query) ||
+        booking._id.toLowerCase().includes(query) ||
         dateFormats.iso.includes(query) ||
         dateFormats.readable.toLowerCase().includes(query) ||
         dateFormats.monthDay.toLowerCase().includes(query) ||
@@ -222,6 +149,29 @@ export default function BookingHistoryPage() {
 
   const tourCount = getFilteredCount("tour");
   const transferCount = getFilteredCount("transfer");
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-16">
+        <AdminHeader />
+        <main className="p-4">
+          <div className="flex items-center gap-3 mb-6">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <FiArrowLeft className="text-xl text-dark" />
+            </button>
+            <h1 className="text-2xl font-bold text-dark">Booking History</h1>
+          </div>
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        </main>
+        <MobileNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
@@ -287,7 +237,7 @@ export default function BookingHistoryPage() {
             {sortedData.length > 0 ? (
               <div className="space-y-3">
                 {sortedData.map((booking) => (
-                  <HistoryBookingCard key={booking.id} booking={booking} />
+                  <HistoryBookingCard key={booking._id} booking={booking} />
                 ))}
               </div>
             ) : (
@@ -336,41 +286,68 @@ function HistoryBookingCard({ booking }: { booking: HistoryBooking }) {
     });
   };
 
+  // Format time to 12-hour format
+  const formatTime = (timeString: string) => {
+    try {
+      const time = new Date(`1970-01-01T${timeString}`);
+      return time.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return timeString; // Return original if parsing fails
+    }
+  };
+
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium text-dark">{booking.user}</h3>
-            <span className="text-xs text-light">#{booking.id}</span>
+            <h3 className="font-medium text-dark">
+              {booking.contactInfo.name}
+            </h3>
+            <span className="text-xs text-light">
+              #{booking._id.slice(-8).toUpperCase()}
+            </span>
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                booking.status === "confirmed"
+                  ? "bg-green-100 text-green-800"
+                  : booking.status === "pending"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            </span>
           </div>
-          <p className="text-sm text-light">{booking.title}</p>
+          <p className="text-sm text-light">{booking.packageId.title}</p>
         </div>
         <div className="text-right">
           <div className="text-sm font-medium text-dark">
             {formatDate(booking.date)}
           </div>
-          <div className="text-sm text-light">{booking.time}</div>
+          <div className="text-sm text-light">{formatTime(booking.time)}</div>
         </div>
       </div>
 
       <div className="flex justify-between items-center">
         <div className="text-sm text-light">
-          {booking.persons.adults} adult
-          {booking.persons.adults !== 1 ? "s" : ""}
-          {booking.persons.children
-            ? `, ${booking.persons.children} child${
-                booking.persons.children !== 1 ? "ren" : ""
+          {booking.adults} adult
+          {booking.adults !== 1 ? "s" : ""}
+          {booking.children
+            ? `, ${booking.children} child${
+                booking.children !== 1 ? "ren" : ""
               }`
             : ""}
         </div>
 
         <div className="flex items-center gap-3">
-          {booking.amount && (
-            <span className="text-sm font-medium text-primary">
-              {booking.amount}
-            </span>
-          )}
+          <span className="text-sm font-medium text-primary">
+            RM {booking.total}
+          </span>
         </div>
       </div>
     </div>

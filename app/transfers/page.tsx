@@ -10,6 +10,7 @@ import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { transferApi, TransferType } from "@/lib/transferApi";
 import { toast } from "react-hot-toast";
+import { FiRefreshCw } from "react-icons/fi";
 
 interface TransferTableData {
   id: string;
@@ -17,9 +18,9 @@ interface TransferTableData {
   category: string;
   route: string;
   price: string | number; // Allow both for formatted display
-  status: React.ReactNode; // Change to ReactNode to allow status toggle component
+  status: string; // Change to string for simple display
   _id: string;
-  originalStatus: "active" | "sold"; // Keep original status for toggle functionality
+  originalStatus: "active" | "sold"; // Keep original status for reference
   [key: string]: any; // Index signature for DataTable compatibility
 }
 
@@ -39,88 +40,39 @@ export default function TransfersPage() {
   });
 
   // Fetch transfers from API
-  useEffect(() => {
-    const fetchTransfers = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await transferApi.getTransfers({ limit: 100 }); // Get all transfers
-
-        // Transform the data to match the table structure
-        const transformedTransfers: TransferTableData[] = response.data.map(
-          (transfer: TransferType) => ({
-            id: transfer._id,
-            name: transfer.title,
-            category: transfer.type,
-            route: `${transfer.from} → ${transfer.to}`,
-            price: `RM ${transfer.newPrice.toFixed(2)}`,
-            status: (
-              <StatusToggle
-                key={`${transfer._id}-${transfer.status}`} // Add key to force re-render
-                initialStatus={transfer.status}
-                onStatusChange={(status) =>
-                  handleStatusUpdate(transfer._id, status)
-                }
-              />
-            ),
-            originalStatus: transfer.status,
-            _id: transfer._id,
-          })
-        );
-
-        setTransfers(transformedTransfers);
-      } catch (err) {
-        console.error("Error fetching transfers:", err);
-        setError("Failed to load transfers. Please try again later.");
-        toast.error("Failed to load transfers");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTransfers();
-  }, []);
-
-  // Handle transfer status update
-  const handleStatusUpdate = async (
-    transferId: string,
-    newStatus: "active" | "sold"
-  ) => {
+  const fetchTransfers = async () => {
     try {
-      await transferApi.updateTransferStatus(transferId, newStatus);
+      setIsLoading(true);
+      setError(null);
+      const response = await transferApi.getTransfers({ limit: 100 }); // Get all transfers
 
-      // Update the local state to trigger re-render
-      setTransfers((prevTransfers) =>
-        prevTransfers.map((transfer) =>
-          transfer._id === transferId
-            ? {
-                ...transfer,
-                originalStatus: newStatus,
-                status: (
-                  <StatusToggle
-                    key={`${transferId}-${newStatus}`} // Add key to force re-render
-                    initialStatus={newStatus}
-                    onStatusChange={(status) =>
-                      handleStatusUpdate(transferId, status)
-                    }
-                  />
-                ),
-              }
-            : transfer
-        )
+      // Transform the data to match the table structure
+      const transformedTransfers: TransferTableData[] = response.data.map(
+        (transfer: TransferType) => ({
+          id: transfer._id,
+          name: transfer.title,
+          category: transfer.type,
+          route: `${transfer.from} → ${transfer.to}`,
+          price: `RM ${transfer.newPrice.toFixed(2)}`,
+          status: transfer.status === "active" ? "Active" : "Sold Out",
+          originalStatus: transfer.status,
+          _id: transfer._id,
+        })
       );
 
-      toast.success(
-        `Transfer status updated to ${
-          newStatus === "active" ? "Active" : "Sold Out"
-        }`
-      );
-    } catch (error) {
-      console.error("Error updating transfer status:", error);
-      toast.error("Failed to update transfer status");
-      throw error; // Re-throw to let StatusToggle handle the error state
+      setTransfers(transformedTransfers);
+    } catch (err) {
+      console.error("Error fetching transfers:", err);
+      setError("Failed to load transfers. Please try again later.");
+      toast.error("Failed to load transfers");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchTransfers();
+  }, []);
 
   // Handle transfer deletion
   const handleDelete = async (id: string) => {
@@ -247,13 +199,37 @@ export default function TransfersPage() {
 
       <main className="p-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-dark">Transfers</h1>
-          <Link
-            href={"/transfers/add-transfer"}
-            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            + Add Transfer
-          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-dark">Transfers</h1>
+            <p className="text-gray-600 text-sm mt-1">
+              {isLoading
+                ? "Loading..."
+                : `${transfers.length} transfer${
+                    transfers.length !== 1 ? "s" : ""
+                  } total`}
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={fetchTransfers}
+              disabled={isLoading}
+              className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center md:px-4"
+              title="Refresh transfers"
+            >
+              <FiRefreshCw
+                className={`w-4 h-4 ${isLoading ? "animate-spin" : ""} md:mr-2`}
+              />
+              <span className="hidden md:inline">
+                {isLoading ? "Refreshing..." : "Refresh"}
+              </span>
+            </button>
+            <Link
+              href={"/transfers/add-transfer"}
+              className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90"
+            >
+              + Add Transfer
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
