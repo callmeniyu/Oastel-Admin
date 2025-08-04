@@ -323,7 +323,9 @@ function HistoryBookingCard({ booking }: { booking: HistoryBooking }) {
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
             </span>
           </div>
-          <p className="text-sm text-light">{booking.packageId.title}</p>
+          <p className="text-sm text-light">
+            {booking.packageId?.title || "Package not found"}
+          </p>
         </div>
         <div className="text-right">
           <div className="text-sm font-medium text-dark">

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import AdminHeader from "@/components/admin/AdminHeader";
 import MobileNav from "@/components/admin/MobileNav";
 import DataTable from "@/components/admin/DataTable";
-import StatusToggle from "@/components/admin/StatusToggle";
 import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { transferApi, TransferType } from "@/lib/transferApi";
@@ -18,9 +17,7 @@ interface TransferTableData {
   category: string;
   route: string;
   price: string | number; // Allow both for formatted display
-  status: string; // Change to string for simple display
   _id: string;
-  originalStatus: "active" | "sold"; // Keep original status for reference
   [key: string]: any; // Index signature for DataTable compatibility
 }
 
@@ -54,8 +51,6 @@ export default function TransfersPage() {
           category: transfer.type,
           route: `${transfer.from} → ${transfer.to}`,
           price: `RM ${transfer.newPrice.toFixed(2)}`,
-          status: transfer.status === "active" ? "Active" : "Sold Out",
-          originalStatus: transfer.status,
           _id: transfer._id,
         })
       );
@@ -125,7 +120,6 @@ export default function TransfersPage() {
     { key: "category", label: "Category" },
     { key: "route", label: "Route" },
     { key: "price", label: "Price (RM)" },
-    { key: "status", label: "Status" },
     { key: "actions", label: "Actions" },
   ];
 

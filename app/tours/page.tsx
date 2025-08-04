@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import AdminHeader from "@/components/admin/AdminHeader";
 import MobileNav from "@/components/admin/MobileNav";
 import DataTable from "@/components/admin/DataTable";
-import StatusToggle from "@/components/admin/StatusToggle";
 import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { tourApi, TourType } from "@/lib/tourApi";
@@ -18,9 +17,7 @@ interface TourTableData {
   category: string;
   period: string;
   price: string | number; // Allow both for formatted display
-  status: string; // Change to string for simple display
   _id: string;
-  originalStatus: "active" | "sold"; // Keep original status for reference
   [key: string]: any; // Index signature for DataTable compatibility
 }
 
@@ -54,8 +51,6 @@ export default function ToursPage() {
           category: tour.type === "co-tour" ? "Co-Tour" : "Private",
           period: tour.period,
           price: `RM ${tour.newPrice.toFixed(2)}`,
-          status: tour.status === "active" ? "Active" : "Sold Out",
-          originalStatus: tour.status,
           _id: tour._id,
         })
       );
@@ -121,7 +116,6 @@ export default function ToursPage() {
     { key: "category", label: "Category" },
     { key: "period", label: "Period" },
     { key: "price", label: "Price (RM)" },
-    { key: "status", label: "Status" },
     { key: "actions", label: "Actions" },
   ];
 

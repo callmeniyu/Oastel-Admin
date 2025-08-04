@@ -15,6 +15,7 @@ interface BookingData {
   status: string;
   date: string;
   createdAt: string;
+  transport?: "Van" | "Van + Ferry" | "Private"; // Add transport type for transfers
 }
 
 interface PackagePerformance {
@@ -98,8 +99,11 @@ export default function RevenuePage() {
         filteredBookings.forEach((booking) => {
           const packageId = booking.packageId?._id || "unknown";
           const packageName = booking.packageId?.title || "Unknown Package";
+          // For transfers, use transport type; for tours, use package type
           const packageType =
-            booking.packageId?.type || booking.packageType || "unknown";
+            booking.packageType === "transfer"
+              ? booking.transport || "Unknown Transfer Type"
+              : booking.packageId?.type || booking.packageType || "unknown";
 
           if (!packageMap.has(packageId)) {
             packageMap.set(packageId, {
@@ -146,31 +150,72 @@ export default function RevenuePage() {
       return;
     }
 
+    // Get month and year for title
+    const startMonth = new Date(startDate).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+    const endMonth = new Date(endDate).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+    const periodTitle =
+      startMonth === endMonth ? startMonth : `${startMonth} - ${endMonth}`;
+
+    // Create professional header with title and date range
+    const title = `Revenue Analytics Report - ${periodTitle}\n`;
+    const subTitle = `Generated on: ${new Date().toLocaleDateString()}\n`;
+    const dateRange = `Report Period: ${new Date(
+      startDate
+    ).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}\n\n`;
+
+    // Create data rows with proper formatting
     const csvData = revenueData.packagePerformance
       .map(
         (item) =>
-          `"${item.name}","${item.type}","${item.type}",${item.bookings.toFixed(
-            2
-          )},${item.totalPersons.toFixed(2)},"RM ${item.revenue.toFixed(2)}"`
+          `"${item.name}","${item.type}",${item.bookings},${
+            item.totalPersons
+          },"RM ${item.revenue.toFixed(2)}"`
       )
       .join("\n");
 
+    // Create professional header row
     const header =
-      "Package Name,Package Type,Tour Type,Total Bookings,Total Persons,Total Revenue\n";
-    const totalRow = `\n"Total","All Packages","All Types",${revenueData.totalBookings.toFixed(
-      2
-    )},${revenueData.totalPersons.toFixed(
-      2
-    )},"RM ${revenueData.totalRevenue.toFixed(2)}"`;
+      "Package Name,Package Type,Total Bookings,Total Persons,Total Revenue\n";
 
-    const csvContent = header + csvData + totalRow;
+    // Create total section with separator line
+    const separator = ",,,,\n";
+    const totalLabel = `"TOTAL - ${periodTitle}","All Packages",${
+      revenueData.totalBookings
+    },${revenueData.totalPersons},"RM ${revenueData.totalRevenue.toFixed(
+      2
+    )}"\n`;
+
+    // Additional summary metrics
+    const summaryHeader = "\n\nSUMMARY METRICS\n";
+    const avgBookingValue = `"Average Booking Value","","","","RM ${revenueData.avgBookingValue.toFixed(
+      2
+    )}"\n`;
+
+    // Combine all parts
+    const csvContent =
+      title +
+      subTitle +
+      dateRange +
+      header +
+      csvData +
+      separator +
+      totalLabel +
+      summaryHeader +
+      avgBookingValue;
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `revenue-analytics-${
-      new Date().toISOString().split("T")[0]
-    }.csv`;
+    a.download = `revenue-analytics-${periodTitle
+      .replace(/\s+/g, "-")
+      .toLowerCase()}-${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -194,9 +239,16 @@ export default function RevenuePage() {
           <button
             onClick={exportToSpreadsheet}
             disabled={revenueData.packagePerformance.length === 0}
-            className="bg-primary hover:bg-primary text-white font-semibold py-3 px-6 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
           >
-            Export to Spreadsheet
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Export to Excel
           </button>
         </div>
 
@@ -373,7 +425,13 @@ export default function RevenuePage() {
                               : item.type === "private-tour" ||
                                 item.type === "private"
                               ? "bg-purple-100 text-purple-800"
-                              : "bg-primary text-primary"
+                              : item.type === "Van"
+                              ? "bg-green-100 text-green-800"
+                              : item.type === "Van + Ferry"
+                              ? "bg-teal-100 text-teal-800"
+                              : item.type === "Private"
+                              ? "bg-indigo-100 text-indigo-800"
+                              : "bg-gray-100 text-gray-800"
                           }`}
                         >
                           {item.type}

@@ -119,7 +119,7 @@ export default function DashboardPage() {
           title: "Revenue",
           value: `RM ${revenue.toLocaleString()}`,
           icon: "💰",
-          link: "/revenew",
+          link: "/revenue",
         },
         {
           title: "Active Tours",

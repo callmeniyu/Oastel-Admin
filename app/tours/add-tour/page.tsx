@@ -6,8 +6,6 @@ import {
   FiX,
   FiClock,
   FiUsers,
-  FiTag,
-  FiDollarSign,
   FiUpload,
   FiImage,
   FiChevronDown,
@@ -20,7 +18,6 @@ import { toast } from "react-hot-toast";
 import RichTextEditor from "@/components/RichTextEditor";
 import TourCardPreview from "@/components/TourCardPreview";
 import Confirmation from "@/components/ui/Confirmation";
-import { generateSlug, debounce } from "@/lib/utils";
 
 // Schema validatiemon
 const tourSchema = z
