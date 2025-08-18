@@ -51,7 +51,7 @@ export default function DashboardPage() {
       icon: "📊",
       link: "/bookings",
     },
-    { title: "Revenue", value: "Loading...", icon: "💰", link: "/revenew" },
+    { title: "Revenue", value: "Loading...", icon: "💰", link: "/revenue" },
     { title: "Active Tours", value: "Loading...", icon: "🚗", link: "/tours" },
     {
       title: "Active Transfers",
@@ -143,7 +143,7 @@ export default function DashboardPage() {
           icon: "📊",
           link: "/bookings",
         },
-        { title: "Revenue", value: "Error", icon: "💰", link: "/revenew" },
+        { title: "Revenue", value: "Error", icon: "💰", link: "/revenue" },
         { title: "Active Tours", value: "Error", icon: "🚗", link: "/tours" },
         {
           title: "Active Transfers",

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import AdminHeader from "@/components/admin/AdminHeader";
-import DatePicker from "@/app/revenew/DatePicker";
+import DatePicker from "@/app/revenue/DatePicker";
 import { toast } from "react-hot-toast";
 
 interface BlackoutDate {
@@ -14,7 +14,11 @@ interface BlackoutDate {
 
 export default function BlackoutDatesPage() {
   const [blackoutDates, setBlackoutDates] = useState<BlackoutDate[]>([]);
-  const [selectedRange, setSelectedRange] = useState<{ startDate: Date; endDate: Date; key: string }>({
+  const [selectedRange, setSelectedRange] = useState<{
+    startDate: Date;
+    endDate: Date;
+    key: string;
+  }>({
     startDate: new Date(),
     endDate: new Date(),
     key: "selection",
@@ -41,7 +45,10 @@ export default function BlackoutDatesPage() {
   };
 
   const addBlackoutDates = async () => {
-    const dates = getDatesInRange(selectedRange.startDate, selectedRange.endDate);
+    const dates = getDatesInRange(
+      selectedRange.startDate,
+      selectedRange.endDate
+    );
     try {
       for (const date of dates) {
         const res = await fetch("/api/blackout-dates", {
@@ -63,7 +70,9 @@ export default function BlackoutDatesPage() {
 
   const removeBlackoutDate = async (id: string) => {
     try {
-      const res = await fetch(`/api/blackout-dates/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/blackout-dates/${id}`, {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (data.success) {
         toast.success("Blackout date removed");
@@ -96,7 +105,9 @@ export default function BlackoutDatesPage() {
           <div className="mt-4 flex items-center space-x-4">
             <select
               value={packageType}
-              onChange={(e) => setPackageType(e.target.value as "tour" | "transfer")}
+              onChange={(e) =>
+                setPackageType(e.target.value as "tour" | "transfer")
+              }
               className="border rounded p-2"
             >
               <option value="tour">Tour</option>
@@ -119,15 +130,21 @@ export default function BlackoutDatesPage() {
         </div>
 
         <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Existing Blackout Dates</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            Existing Blackout Dates
+          </h2>
           {blackoutDates.length === 0 ? (
             <p>No blackout dates set.</p>
           ) : (
             <ul>
               {blackoutDates.map((bd) => (
-                <li key={bd._id} className="flex justify-between items-center border-b py-2">
+                <li
+                  key={bd._id}
+                  className="flex justify-between items-center border-b py-2"
+                >
                   <span>
-                    {bd.date} - {bd.packageType} {bd.description && `: ${bd.description}`}
+                    {bd.date} - {bd.packageType}{" "}
+                    {bd.description && `: ${bd.description}`}
                   </span>
                   <button
                     onClick={() => removeBlackoutDate(bd._id)}
