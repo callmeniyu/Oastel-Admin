@@ -9,7 +9,9 @@ import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { transferApi, TransferType } from "@/lib/transferApi";
 import { toast } from "react-hot-toast";
-import { FiRefreshCw } from "react-icons/fi";
+import { FiRefreshCw, FiCalendar } from "react-icons/fi";
+import AdminBookingModal from "@/components/AdminBookingModal";
+import BookingConfirmation from "@/components/BookingConfirmation";
 
 interface TransferTableData {
   id: string;
@@ -34,6 +36,24 @@ export default function TransfersPage() {
     isOpen: false,
     transferId: null,
     transferName: "",
+  });
+
+  // Admin booking modal state
+  const [bookingModal, setBookingModal] = useState<{
+    isOpen: boolean;
+    transferDetails: TransferType | null;
+  }>({
+    isOpen: false,
+    transferDetails: null,
+  });
+
+  // Booking confirmation modal state
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    bookingData: any;
+  }>({
+    isOpen: false,
+    bookingData: null,
   });
 
   // Fetch transfers from API
@@ -113,6 +133,44 @@ export default function TransfersPage() {
       transferId: null,
       transferName: "",
     });
+  };
+
+  // Handle admin booking
+  const handleAdminBooking = async (id: string) => {
+    const transferToBook = transfers.find((transfer) => transfer._id === id);
+    if (!transferToBook) return;
+
+    try {
+      // Fetch full transfer details for booking
+      const response = await transferApi.getTransferById(id);
+      if (response.success && response.data) {
+        setBookingModal({
+          isOpen: true,
+          transferDetails: response.data,
+        });
+      } else {
+        toast.error("Failed to load transfer details for booking");
+      }
+    } catch (error) {
+      console.error("Error fetching transfer details:", error);
+      toast.error("Failed to load transfer details for booking");
+    }
+  };
+
+  // Close booking modal
+  const closeBookingModal = () => {
+    setBookingModal({
+      isOpen: false,
+      transferDetails: null,
+    });
+  };
+
+  // Handle booking success
+  const handleBookingSuccess = () => {
+    toast.success("Transfer booked successfully!");
+    closeBookingModal();
+    // Optionally refresh transfers data to update booking counts
+    fetchTransfers();
   };
 
   const columns = [
@@ -244,11 +302,14 @@ export default function TransfersPage() {
             <DataTable
               columns={columns}
               data={transfers}
-              rowActions={["edit", "delete"]}
+              rowActions={["edit", "book", "delete"]}
               actionHandlers={{
                 onEdit: (row) => {
                   // Navigate to edit page
                   router.push(`/transfers/${row._id}`);
+                },
+                onBook: (row) => {
+                  handleAdminBooking(row._id as string);
                 },
                 onDelete: (row) => {
                   handleDelete(row._id as string);
@@ -281,6 +342,48 @@ export default function TransfersPage() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* Admin Booking Modal */}
+      {bookingModal.transferDetails && (
+        <AdminBookingModal
+          isOpen={bookingModal.isOpen}
+          onClose={closeBookingModal}
+          onSuccess={handleBookingSuccess}
+          onBookingComplete={(bookingData) => {
+            setConfirmationModal({
+              isOpen: true,
+              bookingData,
+            });
+          }}
+          packageType="transfer"
+          packageDetails={{
+            _id: bookingModal.transferDetails._id,
+            title: bookingModal.transferDetails.title,
+            newPrice: bookingModal.transferDetails.newPrice,
+            childPrice: bookingModal.transferDetails.childPrice,
+            minimumPerson: bookingModal.transferDetails.minimumPerson,
+            maximumPerson: bookingModal.transferDetails.maximumPerson,
+            type: bookingModal.transferDetails.type,
+            from: bookingModal.transferDetails.from,
+            to: bookingModal.transferDetails.to,
+            details: {
+              pickupLocations:
+                bookingModal.transferDetails.details?.pickupLocations,
+              pickupOption:
+                bookingModal.transferDetails.details?.pickupOption || "user",
+            },
+          }}
+        />
+      )}
+
+      {/* Booking Confirmation Modal */}
+      <BookingConfirmation
+        isOpen={confirmationModal.isOpen}
+        onClose={() =>
+          setConfirmationModal({ isOpen: false, bookingData: null })
+        }
+        bookingData={confirmationModal.bookingData}
       />
     </div>
   );

@@ -6,6 +6,7 @@ export interface TransferType {
     tags: string[]
     desc: string
     type: "Van" | "Van + Ferry" | "Private"
+    vehicle?: string
     packageType: "transfer"
     duration: string
     status: "active" | "sold"

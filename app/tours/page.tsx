@@ -9,7 +9,9 @@ import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { tourApi, TourType } from "@/lib/tourApi";
 import { toast } from "react-hot-toast";
-import { FiRefreshCw } from "react-icons/fi";
+import { FiRefreshCw, FiCalendar } from "react-icons/fi";
+import AdminBookingModal from "@/components/AdminBookingModal";
+import BookingConfirmation from "@/components/BookingConfirmation";
 
 interface TourTableData {
   id: string;
@@ -34,6 +36,24 @@ export default function ToursPage() {
     isOpen: false,
     tourId: null,
     tourName: "",
+  });
+
+  // Admin booking modal state
+  const [bookingModal, setBookingModal] = useState<{
+    isOpen: boolean;
+    tourDetails: TourType | null;
+  }>({
+    isOpen: false,
+    tourDetails: null,
+  });
+
+  // Booking confirmation modal state
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    bookingData: any;
+  }>({
+    isOpen: false,
+    bookingData: null,
   });
 
   // Fetch tours from API
@@ -109,6 +129,44 @@ export default function ToursPage() {
       tourId: null,
       tourName: "",
     });
+  };
+
+  // Handle admin booking
+  const handleAdminBooking = async (id: string) => {
+    const tourToBook = tours.find((tour) => tour._id === id);
+    if (!tourToBook) return;
+
+    try {
+      // Fetch full tour details for booking
+      const response = await tourApi.getTourById(id);
+      if (response.success && response.data) {
+        setBookingModal({
+          isOpen: true,
+          tourDetails: response.data,
+        });
+      } else {
+        toast.error("Failed to load tour details for booking");
+      }
+    } catch (error) {
+      console.error("Error fetching tour details:", error);
+      toast.error("Failed to load tour details for booking");
+    }
+  };
+
+  // Close booking modal
+  const closeBookingModal = () => {
+    setBookingModal({
+      isOpen: false,
+      tourDetails: null,
+    });
+  };
+
+  // Handle booking success
+  const handleBookingSuccess = () => {
+    toast.success("Tour booked successfully!");
+    closeBookingModal();
+    // Optionally refresh tours data to update booking counts
+    fetchTours();
   };
 
   const columns = [
@@ -238,11 +296,14 @@ export default function ToursPage() {
             <DataTable
               columns={columns}
               data={tours}
-              rowActions={["edit", "delete"]}
+              rowActions={["edit", "book", "delete"]}
               actionHandlers={{
                 onEdit: (row) => {
                   // Navigate to edit page
                   router.push(`/tours/${row._id}`);
+                },
+                onBook: (row) => {
+                  handleAdminBooking(row._id as string);
                 },
                 onDelete: (row) => {
                   handleDelete(row._id as string);
@@ -275,6 +336,44 @@ export default function ToursPage() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* Admin Booking Modal */}
+      {bookingModal.tourDetails && (
+        <AdminBookingModal
+          isOpen={bookingModal.isOpen}
+          onClose={closeBookingModal}
+          onSuccess={handleBookingSuccess}
+          onBookingComplete={(bookingData) => {
+            setConfirmationModal({
+              isOpen: true,
+              bookingData,
+            });
+          }}
+          packageType="tour"
+          packageDetails={{
+            _id: bookingModal.tourDetails._id,
+            title: bookingModal.tourDetails.title,
+            newPrice: bookingModal.tourDetails.newPrice,
+            childPrice: bookingModal.tourDetails.childPrice,
+            minimumPerson: bookingModal.tourDetails.minimumPerson,
+            maximumPerson: bookingModal.tourDetails.maximumPerson,
+            type: bookingModal.tourDetails.type,
+            details: {
+              pickupLocations: bookingModal.tourDetails.details?.pickupLocation,
+              pickupOption: "user",
+            },
+          }}
+        />
+      )}
+
+      {/* Booking Confirmation Modal */}
+      <BookingConfirmation
+        isOpen={confirmationModal.isOpen}
+        onClose={() =>
+          setConfirmationModal({ isOpen: false, bookingData: null })
+        }
+        bookingData={confirmationModal.bookingData}
       />
     </div>
   );

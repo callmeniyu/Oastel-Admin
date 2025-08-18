@@ -45,6 +45,7 @@ const transferSchema = z
       .min(50, "Description must be at least 50 characters")
       .max(110, "Description cannot exceed 110 characters"),
     type: z.enum(["Van", "Van + Ferry", "Private"]),
+    vehicle: z.string().optional(), // Vehicle name for private transfers
     from: z.string().min(2, "From location is required"),
     to: z.string().min(2, "To location is required"),
     duration: z.string().min(1, "Duration is required"),
@@ -134,6 +135,19 @@ const transferSchema = z
     {
       message: "Please provide the required pickup information",
       path: ["details.pickupDescription"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Vehicle is required for Private transfers
+      if (data.type === "Private") {
+        return data.vehicle && data.vehicle.length >= 2;
+      }
+      return true;
+    },
+    {
+      message: "Vehicle name is required for private transfers",
+      path: ["vehicle"],
     }
   );
 
@@ -236,6 +250,7 @@ export default function EditTransferPage({
   const defaultValues = {
     bookedCount: 0,
     type: "Van" as const,
+    vehicle: "", // Vehicle name for private transfers
     label: "None" as const,
     departureTimes: ["08:00"],
     oldPrice: 0,
@@ -413,7 +428,7 @@ export default function EditTransferPage({
         const response = await transferApi.getTransferById(transferId);
 
         if (response.success) {
-          const transfer = response.data;
+          const transfer = response.data as any; // Temporary cast to handle vehicle field
 
           // Map API response to form structure
           const formData: TransferFormData = {
@@ -423,6 +438,7 @@ export default function EditTransferPage({
             tags: transfer.tags || [],
             description: transfer.desc || "", // API uses 'desc', form uses 'description'
             type: (transfer.type as "Van" | "Van + Ferry" | "Private") || "Van",
+            vehicle: transfer.vehicle || "", // Vehicle name for private transfers
             from: transfer.from || "",
             to: transfer.to || "",
             duration: transfer.duration || "",
@@ -496,6 +512,13 @@ export default function EditTransferPage({
       return () => clearTimeout(timer);
     }
   }, [showValidationErrors]);
+
+  // Clear vehicle field when transfer type changes from Private to other types
+  useEffect(() => {
+    if (watchType !== "Private") {
+      setValue("vehicle", "");
+    }
+  }, [watchType, setValue]);
 
   // Clear form function
   const handleClearForm = () => {
@@ -694,6 +717,8 @@ export default function EditTransferPage({
         details: detailsRest,
         desc: description,
         times: departureTimes,
+        // ensure vehicle is explicitly preserved
+        vehicle: data.vehicle || rest.vehicle || "",
       };
       console.log("Updating transfer:", finalTransferData); // Debug log
 
@@ -1133,6 +1158,26 @@ export default function EditTransferPage({
                         <option value="Private">Private</option>
                       </select>
                     </div>
+
+                    {/* Vehicle field - only show for Private transfers */}
+                    {watchType === "Private" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Vehicle Name *
+                        </label>
+                        <input
+                          type="text"
+                          {...register("vehicle")}
+                          placeholder="e.g., Toyota Innova, Mercedes Vito"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                        {errors.vehicle && (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.vehicle.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

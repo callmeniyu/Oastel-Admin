@@ -46,6 +46,7 @@ const transferSchema = z
       .min(50, "Description must be at least 50 characters")
       .max(110, "Description cannot exceed 110 characters"),
     type: z.enum(["Van", "Van + Ferry", "Private"]),
+    vehicle: z.string().optional(), // Vehicle name for private transfers
     from: z.string().min(2, "From location is required"),
     to: z.string().min(2, "To location is required"),
     duration: z.string().min(1, "Duration is required"),
@@ -118,23 +119,44 @@ const transferSchema = z
   )
   .refine(
     (data) => {
-      // For admin-defined pickup, both location and description are required
+      // For admin-defined pickup, only location is required
       if (data.details.pickupOption === "admin") {
+        return data.details.pickupLocation.length >= 10;
+      }
+      return true; // No validation needed for user-defined here
+    },
+    {
+      message: "Pickup location must be at least 10 characters",
+      path: ["details.pickupLocation"],
+    }
+  )
+  .refine(
+    (data) => {
+      // For user-defined pickup, only description is required
+      if (data.details.pickupOption === "user") {
         return (
-          data.details.pickupLocation.length >= 10 &&
           data.details.pickupDescription &&
           data.details.pickupDescription.length >= 10
         );
       }
-      // For user-defined pickup, only description is required
-      return (
-        data.details.pickupDescription &&
-        data.details.pickupDescription.length >= 10
-      );
+      return true; // No validation needed for admin-defined here
     },
     {
-      message: "Please provide the required pickup information",
+      message: "Pickup description must be at least 10 characters",
       path: ["details.pickupDescription"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Vehicle is required for Private transfers
+      if (data.type === "Private") {
+        return data.vehicle && data.vehicle.length >= 2;
+      }
+      return true;
+    },
+    {
+      message: "Vehicle name is required for private transfers",
+      path: ["vehicle"],
     }
   );
 
@@ -223,6 +245,7 @@ export default function AddTransferPage() {
   const defaultValues = {
     bookedCount: 0,
     type: "Van" as const,
+    vehicle: "", // Vehicle name for private transfers
     label: "None" as const,
     departureTimes: ["08:00"],
     oldPrice: 0,
@@ -347,6 +370,14 @@ export default function AddTransferPage() {
       return () => clearTimeout(timer);
     }
   }, [showValidationErrors, validationSuccess]);
+
+  // Clear vehicle field when transfer type changes from Private to other types
+  useEffect(() => {
+    if (watchType !== "Private") {
+      setValue("vehicle", "");
+      clearErrors("vehicle");
+    }
+  }, [watchType, setValue, clearErrors]);
 
   // Clear form function
   const handleClearForm = () => {
@@ -518,7 +549,6 @@ export default function AddTransferPage() {
         ...data,
         // Use Cloudinary URL for upload method, or use the URL/preview for URL method
         image: uploadedImageUrl,
-        status: "active",
         details: {
           ...data.details,
           faq: validFaqs,
@@ -533,7 +563,9 @@ export default function AddTransferPage() {
         times: data.departureTimes,
       };
 
-      // Remove the form-specific fields that don't exist in the API
+      console.log("Transfer data before processing:", transferData); // Debug log
+
+      // Remove the form-specific fields that don't exist in the API (but keep vehicle)
       const {
         description,
         departureTimes,
@@ -545,8 +577,10 @@ export default function AddTransferPage() {
         details: detailsRest,
         desc: description,
         times: departureTimes,
+        // ensure vehicle is explicitly preserved
+        vehicle: data.vehicle || rest.vehicle || "",
       };
-      console.log("Submitting transfer:", finalTransferData); // Debug log
+      console.log("Final transfer data:", finalTransferData); // Debug log
 
       // Call the API to create the transfer
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
@@ -963,6 +997,26 @@ export default function AddTransferPage() {
                       <option value="Private">Private</option>
                     </select>
                   </div>
+
+                  {/* Vehicle field - only show for Private transfers */}
+                  {watchType === "Private" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Vehicle Name *
+                      </label>
+                      <input
+                        type="text"
+                        {...register("vehicle")}
+                        placeholder="e.g., Toyota Innova, Mercedes Vito"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                      {errors.vehicle && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.vehicle.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

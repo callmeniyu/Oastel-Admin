@@ -69,6 +69,7 @@ export default function BookingsPage() {
       const toursData = await toursResponse.json();
       const transfersData = await transfersResponse.json();
 
+      // Ensure server responses are normalized: tours -> packageType 'tour', transfers -> 'transfer'
       const allPackages = [
         ...(toursData.tours || []).map((tour: any) => ({
           ...tour,
