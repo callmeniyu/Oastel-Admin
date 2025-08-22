@@ -23,6 +23,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import Confirmation from "@/components/ui/Confirmation";
 import { generateSlug, debounce } from "@/lib/utils";
 import { transferApi } from "@/lib/transferApi";
+import { useForm as useHookForm } from "react-hook-form";
 
 // Schema validation
 const transferSchema = z
@@ -56,6 +57,7 @@ const transferSchema = z
     childPrice: z.number().min(0, "Child price must be 0 or greater"),
     minimumPerson: z.number().min(1, "Minimum must be at least 1 person"),
     maximumPerson: z.number().min(1, "Maximum must be at least 1 person"),
+    seatCapacity: z.number().min(1, "Seat capacity must be at least 1"),
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
@@ -214,6 +216,12 @@ const CollapsibleSection = ({
 
 export default function AddTransferPage() {
   const router = useRouter();
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
+  const [vehicleName, setVehicleName] = useState("");
+  const [vehicleUnits, setVehicleUnits] = useState(1);
+  const [vehicleSeats, setVehicleSeats] = useState(4);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slugLoading, setSlugLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -253,6 +261,7 @@ export default function AddTransferPage() {
     childPrice: 0,
     minimumPerson: 1,
     maximumPerson: 10,
+    seatCapacity: 4,
     tags: [],
     from: "",
     to: "",
@@ -265,6 +274,57 @@ export default function AddTransferPage() {
       note: "",
       faq: [{ question: "", answer: "" }],
     },
+  };
+
+  // Fetch vehicles for private transfer selection
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`
+        );
+        const data = await res.json();
+        if (data.success) setVehicles(data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch vehicles", err);
+      }
+    };
+    fetchVehicles();
+  }, []);
+
+  const createVehicle = async () => {
+    if (!vehicleName.trim()) return toast.error("Vehicle name required");
+    setVehicleSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: vehicleName.trim(),
+            units: vehicleUnits,
+            seats: vehicleSeats,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setVehicles((v) => [...v, data.data]);
+        setShowAddVehicle(false);
+        setVehicleName("");
+        setVehicleSeats(4);
+        setVehicleUnits(1);
+        toast.success("Vehicle created");
+      } else {
+        toast.error(data.message || "Failed to create vehicle");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create vehicle");
+    } finally {
+      setVehicleSubmitting(false);
+    }
   };
 
   const {
@@ -305,6 +365,7 @@ export default function AddTransferPage() {
   const watchPickupOption = watch("details.pickupOption");
   const watchMinimumPerson = watch("minimumPerson");
   const watchMaximumPerson = watch("maximumPerson");
+  const watchSeatCapacity = watch("seatCapacity");
   const watchDepartureTimes = watch("departureTimes");
   const watchDetailsAbout = watch("details.about");
   const watchDetailsItinerary = watch("details.itinerary");
@@ -579,6 +640,9 @@ export default function AddTransferPage() {
         times: departureTimes,
         // ensure vehicle is explicitly preserved
         vehicle: data.vehicle || rest.vehicle || "",
+        // include seatCapacity if provided
+        seatCapacity:
+          data.seatCapacity || (rest as any).seatCapacity || undefined,
       };
       console.log("Final transfer data:", finalTransferData); // Debug log
 
@@ -1002,18 +1066,176 @@ export default function AddTransferPage() {
                   {watchType === "Private" && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Vehicle Name *
+                        Vehicle *
                       </label>
-                      <input
-                        type="text"
-                        {...register("vehicle")}
-                        placeholder="e.g., Toyota Innova, Mercedes Vito"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
+                      <div className="flex gap-2">
+                        <select
+                          {...register("vehicle")}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            // find vehicle and set seatCapacity accordingly
+                            const v = vehicles.find(
+                              (x) => x._id === val || x.name === val
+                            );
+                            if (v) {
+                              setValue("seatCapacity", Number(v.seats));
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="">Select a vehicle</option>
+                          {vehicles.map((v) => (
+                            <option key={v._id} value={v._id}>
+                              {v.name} ({v.units} units • {v.seats} seats)
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddVehicle(true)}
+                          className="px-3 py-2 bg-primary text-white rounded-md"
+                        >
+                          <FiPlus />
+                        </button>
+                      </div>
                       {errors.vehicle && (
                         <p className="text-red-500 text-xs mt-1">
                           {errors.vehicle.message}
                         </p>
+                      )}
+
+                      {/* Add Vehicle Modal (popup) */}
+                      {showAddVehicle && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center">
+                          {/* backdrop */}
+                          <div
+                            className="absolute inset-0 bg-black/40"
+                            onClick={() => setShowAddVehicle(false)}
+                          />
+                          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md p-6 z-10">
+                            <h4 className="text-lg font-semibold">
+                              Add new vehicle
+                            </h4>
+                            <div className="mt-4 space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  1. Vehicle name
+                                </label>
+                                <input
+                                  value={vehicleName}
+                                  onChange={(e) =>
+                                    setVehicleName(e.target.value)
+                                  }
+                                  placeholder="e.g., Toyota Innova"
+                                  className="w-full px-3 py-2 border rounded-md"
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  2. Units (number of identical vehicles)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    aria-label="decrease units"
+                                    onClick={() =>
+                                      setVehicleUnits(
+                                        Math.max(1, vehicleUnits - 1)
+                                      )
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    value={vehicleUnits}
+                                    onChange={(e) =>
+                                      setVehicleUnits(
+                                        Math.max(1, Number(e.target.value || 1))
+                                      )
+                                    }
+                                    min={1}
+                                    className="w-20 px-2 py-1 border rounded-md text-center"
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label="increase units"
+                                    onClick={() =>
+                                      setVehicleUnits(vehicleUnits + 1)
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  3. Seats (per vehicle)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    aria-label="decrease seats"
+                                    onClick={() =>
+                                      setVehicleSeats(
+                                        Math.max(1, vehicleSeats - 1)
+                                      )
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    value={vehicleSeats}
+                                    onChange={(e) =>
+                                      setVehicleSeats(
+                                        Math.max(1, Number(e.target.value || 1))
+                                      )
+                                    }
+                                    min={1}
+                                    className="w-20 px-2 py-1 border rounded-md text-center"
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label="increase seats"
+                                    onClick={() =>
+                                      setVehicleSeats(vehicleSeats + 1)
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex justify-end gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAddVehicle(false)}
+                                  className="px-4 py-2 border rounded-md"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={createVehicle}
+                                  disabled={vehicleSubmitting}
+                                  className="px-4 py-2 bg-primary text-white rounded-md"
+                                >
+                                  {vehicleSubmitting
+                                    ? "Creating..."
+                                    : "Create vehicle"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1145,6 +1367,8 @@ export default function AddTransferPage() {
                       {errors.maximumPerson?.message}
                     </p>
                   </div>
+
+                  {/* Seat Capacity removed: using vehicle's seats from created vehicle instead */}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

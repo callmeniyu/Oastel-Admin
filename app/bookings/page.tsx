@@ -483,7 +483,7 @@ export default function BookingsPage() {
                         : "text-light hover:text-dark"
                     }`}
                   >
-                    Tours ({tours.length})
+                    Tours
                   </button>
                   <button
                     onClick={() => setActiveTab("transfers")}
@@ -493,7 +493,7 @@ export default function BookingsPage() {
                         : "text-light hover:text-dark"
                     }`}
                   >
-                    Transfers ({transfers.length})
+                    Transfers
                   </button>
                 </div>
 

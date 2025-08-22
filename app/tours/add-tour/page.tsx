@@ -63,6 +63,7 @@ const tourSchema = z
       pickupLocation: z
         .string()
         .min(10, "Pickup location must be at least 10 characters"),
+      pickupGuidelines: z.string().optional(),
       note: z.string().min(10, "Note must be at least 10 characters"),
       faq: z.array(
         z.object({
@@ -194,6 +195,7 @@ export default function AddTourPage() {
       about: "",
       itinerary: "",
       pickupLocation: "",
+      pickupGuidelines: "",
       note: "",
       faq: [{ question: "", answer: "" }],
     },
@@ -240,6 +242,7 @@ export default function AddTourPage() {
   const watchDetailsPickupLocation = watch("details.pickupLocation");
   const watchDetailsNote = watch("details.note");
   const watchDetailsFaq = watch("details.faq");
+  const watchDetailsPickupGuidelines = watch("details.pickupGuidelines");
 
   // Handle adding tags
   const addTag = (field: any) => {
@@ -1140,6 +1143,29 @@ export default function AddTourPage() {
                     />
                     <p className="text-xs text-red-500 mt-1">
                       {errors.details?.pickupLocation?.message}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Pickup Guidelines
+                    </label>
+                    <Controller
+                      name="details.pickupGuidelines"
+                      control={control}
+                      render={({ field }) => (
+                        <RichTextEditor
+                          content={field.value || ""}
+                          onChange={(content) => {
+                            field.onChange(content);
+                          }}
+                          placeholder="Optional: provide any pickup guidelines or special instructions for guests..."
+                          error={!!errors.details?.pickupGuidelines}
+                        />
+                      )}
+                    />
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors.details?.pickupGuidelines?.message}
                     </p>
                   </div>
 

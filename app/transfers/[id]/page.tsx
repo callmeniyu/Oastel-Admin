@@ -21,7 +21,9 @@ import { toast } from "react-hot-toast";
 import TransferCardPreview from "@/components/TransferCardPreview";
 import RichTextEditor from "@/components/RichTextEditor";
 import Confirmation from "@/components/ui/Confirmation";
+import { generateSlug, debounce } from "@/lib/utils";
 import { transferApi } from "@/lib/transferApi";
+import { useForm as useHookForm } from "react-hook-form";
 
 // Schema validation
 const transferSchema = z
@@ -55,6 +57,7 @@ const transferSchema = z
     childPrice: z.number().min(0, "Child price must be 0 or greater"),
     minimumPerson: z.number().min(1, "Minimum must be at least 1 person"),
     maximumPerson: z.number().min(1, "Maximum must be at least 1 person"),
+    seatCapacity: z.number().min(1, "Seat capacity must be at least 1"),
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
@@ -118,22 +121,30 @@ const transferSchema = z
   )
   .refine(
     (data) => {
-      // For admin-defined pickup, both location and description are required
+      // For admin-defined pickup, only location is required
       if (data.details.pickupOption === "admin") {
+        return data.details.pickupLocation.length >= 10;
+      }
+      return true; // No validation needed for user-defined here
+    },
+    {
+      message: "Pickup location must be at least 10 characters",
+      path: ["details.pickupLocation"],
+    }
+  )
+  .refine(
+    (data) => {
+      // For user-defined pickup, only description is required
+      if (data.details.pickupOption === "user") {
         return (
-          data.details.pickupLocation.length >= 10 &&
           data.details.pickupDescription &&
           data.details.pickupDescription.length >= 10
         );
       }
-      // For user-defined pickup, only description is required
-      return (
-        data.details.pickupDescription &&
-        data.details.pickupDescription.length >= 10
-      );
+      return true; // No validation needed for admin-defined here
     },
     {
-      message: "Please provide the required pickup information",
+      message: "Pickup description must be at least 10 characters",
       path: ["details.pickupDescription"],
     }
   )
@@ -229,6 +240,12 @@ export default function EditTransferPage({
     (() => void) | null
   >(null);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
+  const [vehicleName, setVehicleName] = useState("");
+  const [vehicleUnits, setVehicleUnits] = useState(1);
+  const [vehicleSeats, setVehicleSeats] = useState(4);
 
   // Section visibility states
   const [sectionsExpanded, setSectionsExpanded] = useState({
@@ -258,6 +275,7 @@ export default function EditTransferPage({
     childPrice: 0,
     minimumPerson: 1,
     maximumPerson: 10,
+    seatCapacity: undefined,
     tags: [],
     from: "",
     to: "",
@@ -270,6 +288,56 @@ export default function EditTransferPage({
       note: "",
       faq: [{ question: "", answer: "" }],
     },
+  };
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`
+        );
+        const data = await res.json();
+        if (data.success) setVehicles(data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch vehicles", err);
+      }
+    };
+    fetchVehicles();
+  }, []);
+
+  const createVehicle = async () => {
+    if (!vehicleName.trim()) return toast.error("Vehicle name required");
+    setVehicleSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: vehicleName.trim(),
+            units: vehicleUnits,
+            seats: vehicleSeats,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setVehicles((v) => [...v, data.data]);
+        setShowAddVehicle(false);
+        setVehicleName("");
+        setVehicleSeats(4);
+        setVehicleUnits(1);
+        toast.success("Vehicle created");
+      } else {
+        toast.error(data.message || "Failed to create vehicle");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create vehicle");
+    } finally {
+      setVehicleSubmitting(false);
+    }
   };
 
   const {
@@ -471,6 +539,10 @@ export default function EditTransferPage({
                   ? transfer.details.faq
                   : [{ question: "", answer: "" }],
             },
+            seatCapacity:
+              typeof transfer.seatCapacity === "number"
+                ? transfer.seatCapacity
+                : undefined,
           };
 
           // Set form values
@@ -517,6 +589,8 @@ export default function EditTransferPage({
   useEffect(() => {
     if (watchType !== "Private") {
       setValue("vehicle", "");
+      // Clear seat capacity for non-private types
+      setValue("seatCapacity", undefined as any);
     }
   }, [watchType, setValue]);
 
@@ -719,6 +793,11 @@ export default function EditTransferPage({
         times: departureTimes,
         // ensure vehicle is explicitly preserved
         vehicle: data.vehicle || rest.vehicle || "",
+        // include seat capacity for private transfers
+        seatCapacity:
+          typeof data.seatCapacity === "number"
+            ? data.seatCapacity
+            : rest.seatCapacity,
       };
       console.log("Updating transfer:", finalTransferData); // Debug log
 
@@ -1176,6 +1255,30 @@ export default function EditTransferPage({
                             {errors.vehicle.message}
                           </p>
                         )}
+                        <div className="mt-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Seat Capacity (per vehicle) *
+                          </label>
+                          <input
+                            {...register("seatCapacity", {
+                              valueAsNumber: true,
+                            })}
+                            type="number"
+                            min={1}
+                            step={1}
+                            placeholder="e.g., 4"
+                            className={`w-full px-3 py-2 border rounded-md ${
+                              errors.seatCapacity
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            }`}
+                          />
+                          {errors.seatCapacity && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.seatCapacity.message}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
 
