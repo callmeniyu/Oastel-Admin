@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   FiPlus,
@@ -73,6 +73,7 @@ const transferSchema = z
       pickupLocation: z
         .string()
         .min(10, "Pickup location must be at least 10 characters"),
+      dropOffLocation: z.string().optional(),
       pickupDescription: z.string().optional(),
       note: z.string().min(10, "Note must be at least 10 characters"),
       faq: z.array(
@@ -217,10 +218,12 @@ const CollapsibleSection = ({
 export default function EditTransferPage({
   params,
 }: {
-  params: { id: string };
+  params: { id: string } | Promise<{ id: string }>;
 }) {
   const router = useRouter();
-  const { id: transferId } = params;
+  // React.use() unwraps the params Promise in Next.js App Router migration
+  const resolvedParams = React.use(params as any);
+  const { id: transferId } = resolvedParams as any;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [slugLoading, setSlugLoading] = useState(false);
@@ -282,6 +285,7 @@ export default function EditTransferPage({
     details: {
       about: "",
       itinerary: "",
+      dropOffLocation: "",
       pickupOption: "admin" as "admin" | "user",
       pickupLocation: "",
       pickupDescription: "",
@@ -526,6 +530,7 @@ export default function EditTransferPage({
             details: {
               about: transfer.details?.about || "",
               itinerary: transfer.details?.itinerary || "",
+              dropOffLocation: transfer.details?.dropOffLocations || "",
               pickupOption:
                 (transfer.details?.pickupOption as "admin" | "user") || "admin",
               pickupLocation:
@@ -788,7 +793,6 @@ export default function EditTransferPage({
       } = transferData;
       const finalTransferData = {
         ...rest,
-        details: detailsRest,
         desc: description,
         times: departureTimes,
         // ensure vehicle is explicitly preserved
@@ -798,6 +802,14 @@ export default function EditTransferPage({
           typeof data.seatCapacity === "number"
             ? data.seatCapacity
             : rest.seatCapacity,
+        // include drop off locations merged into details
+        details: {
+          ...(detailsRest as any),
+          dropOffLocations:
+            data.details.dropOffLocation ||
+            ((detailsRest as any)?.dropOffLocations as any) ||
+            "",
+        },
       };
       console.log("Updating transfer:", finalTransferData); // Debug log
 
@@ -1244,41 +1256,186 @@ export default function EditTransferPage({
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Vehicle Name *
                         </label>
-                        <input
-                          type="text"
-                          {...register("vehicle")}
-                          placeholder="e.g., Toyota Innova, Mercedes Vito"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        />
+                        <div className="flex gap-2">
+                          <Controller
+                            name="vehicle"
+                            control={control}
+                            render={({ field }) => (
+                              <select
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  const v = vehicles.find(
+                                    (x) => x.name === e.target.value
+                                  );
+                                  if (v) {
+                                    setValue("seatCapacity", Number(v.seats));
+                                  }
+                                }}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                              >
+                                <option value="">Select a vehicle</option>
+                                {vehicles.map((v) => (
+                                  <option key={v._id} value={v.name}>
+                                    {v.name} ({v.units} units • {v.seats} seats)
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowAddVehicle(true)}
+                            className="px-3 py-2 bg-primary text-white rounded-md"
+                          >
+                            <FiPlus />
+                          </button>
+                        </div>
                         {errors.vehicle && (
                           <p className="text-red-500 text-xs mt-1">
                             {errors.vehicle.message}
                           </p>
                         )}
-                        <div className="mt-3">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Seat Capacity (per vehicle) *
-                          </label>
-                          <input
-                            {...register("seatCapacity", {
-                              valueAsNumber: true,
-                            })}
-                            type="number"
-                            min={1}
-                            step={1}
-                            placeholder="e.g., 4"
-                            className={`w-full px-3 py-2 border rounded-md ${
-                              errors.seatCapacity
-                                ? "border-red-500"
-                                : "border-gray-300"
-                            }`}
-                          />
-                          {errors.seatCapacity && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {errors.seatCapacity.message}
-                            </p>
-                          )}
-                        </div>
+
+                        {/* Add Vehicle Modal (popup) */}
+                        {showAddVehicle && (
+                          <div className="fixed inset-0 z-50 flex items-center justify-center">
+                            {/* backdrop */}
+                            <div
+                              className="absolute inset-0 bg-black/40"
+                              onClick={() => setShowAddVehicle(false)}
+                            />
+                            <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md p-6 z-10">
+                              <h4 className="text-lg font-semibold">
+                                Add new vehicle
+                              </h4>
+                              <div className="mt-4 space-y-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    1. Vehicle name
+                                  </label>
+                                  <input
+                                    value={vehicleName}
+                                    onChange={(e) =>
+                                      setVehicleName(e.target.value)
+                                    }
+                                    placeholder="e.g., Toyota Innova"
+                                    className="w-full px-3 py-2 border rounded-md"
+                                    required
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    2. Units (number of identical vehicles)
+                                  </label>
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      aria-label="decrease units"
+                                      onClick={() =>
+                                        setVehicleUnits(
+                                          Math.max(1, vehicleUnits - 1)
+                                        )
+                                      }
+                                      className="px-3 py-1 border rounded-md"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={vehicleUnits}
+                                      onChange={(e) =>
+                                        setVehicleUnits(
+                                          Math.max(
+                                            1,
+                                            Number(e.target.value || 1)
+                                          )
+                                        )
+                                      }
+                                      min={1}
+                                      className="w-20 px-2 py-1 border rounded-md text-center"
+                                    />
+                                    <button
+                                      type="button"
+                                      aria-label="increase units"
+                                      onClick={() =>
+                                        setVehicleUnits(vehicleUnits + 1)
+                                      }
+                                      className="px-3 py-1 border rounded-md"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    3. Seats (per vehicle)
+                                  </label>
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      aria-label="decrease seats"
+                                      onClick={() =>
+                                        setVehicleSeats(
+                                          Math.max(1, vehicleSeats - 1)
+                                        )
+                                      }
+                                      className="px-3 py-1 border rounded-md"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={vehicleSeats}
+                                      onChange={(e) =>
+                                        setVehicleSeats(
+                                          Math.max(
+                                            1,
+                                            Number(e.target.value || 1)
+                                          )
+                                        )
+                                      }
+                                      min={1}
+                                      className="w-20 px-2 py-1 border rounded-md text-center"
+                                    />
+                                    <button
+                                      type="button"
+                                      aria-label="increase seats"
+                                      onClick={() =>
+                                        setVehicleSeats(vehicleSeats + 1)
+                                      }
+                                      className="px-3 py-1 border rounded-md"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="mt-2 flex justify-end gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowAddVehicle(false)}
+                                    className="px-4 py-2 border rounded-md"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={createVehicle}
+                                    disabled={vehicleSubmitting}
+                                    className="px-4 py-2 bg-primary text-white rounded-md"
+                                  >
+                                    {vehicleSubmitting
+                                      ? "Creating..."
+                                      : "Create vehicle"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1554,6 +1711,27 @@ export default function EditTransferPage({
                       />
                       <p className="text-xs text-red-500 mt-1">
                         {errors.details?.itinerary?.message}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Drop-off Location (optional)
+                      </label>
+                      <Controller
+                        name="details.dropOffLocation"
+                        control={control}
+                        render={({ field }) => (
+                          <RichTextEditor
+                            content={field.value || ""}
+                            onChange={(content) => field.onChange(content)}
+                            placeholder="Provide drop-off location details if applicable..."
+                            error={false}
+                          />
+                        )}
+                      />
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.details?.dropOffLocation?.message}
                       </p>
                     </div>
 

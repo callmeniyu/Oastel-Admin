@@ -73,6 +73,7 @@ const transferSchema = z
       pickupLocation: z
         .string()
         .min(10, "Pickup location must be at least 10 characters"),
+      dropOffLocation: z.string().optional(),
       pickupDescription: z.string().optional(),
       note: z.string().min(10, "Note must be at least 10 characters"),
       faq: z.array(
@@ -268,6 +269,7 @@ export default function AddTransferPage() {
     details: {
       about: "",
       itinerary: "",
+      dropOffLocation: "",
       pickupOption: "admin" as "admin" | "user",
       pickupLocation: "",
       pickupDescription: "",
@@ -370,6 +372,7 @@ export default function AddTransferPage() {
   const watchDetailsAbout = watch("details.about");
   const watchDetailsItinerary = watch("details.itinerary");
   const watchDetailsPickupLocation = watch("details.pickupLocation");
+  const watchDetailsDropOffLocation = watch("details.dropOffLocation");
   const watchDetailsPickupDescription = watch("details.pickupDescription");
   const watchDetailsNote = watch("details.note");
   const watchDetailsFaq = watch("details.faq");
@@ -618,6 +621,8 @@ export default function AddTransferPage() {
             data.details.pickupOption === "admin"
               ? data.details.pickupLocation || ""
               : data.details.pickupDescription || "",
+          // Drop-off locations (admin-entered)
+          dropOffLocations: data.details.dropOffLocation || "",
         },
         // Map form field names to API field names
         desc: data.description,
@@ -1085,7 +1090,7 @@ export default function AddTransferPage() {
                         >
                           <option value="">Select a vehicle</option>
                           {vehicles.map((v) => (
-                            <option key={v._id} value={v._id}>
+                            <option key={v._id} value={v.name}>
                               {v.name} ({v.units} units • {v.seats} seats)
                             </option>
                           ))}
@@ -1506,6 +1511,27 @@ export default function AddTransferPage() {
                     />
                     <p className="text-xs text-red-500 mt-1">
                       {errors.details?.itinerary?.message}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Drop-off Location (optional)
+                    </label>
+                    <Controller
+                      name="details.dropOffLocation"
+                      control={control}
+                      render={({ field }) => (
+                        <RichTextEditor
+                          content={field.value || ""}
+                          onChange={(content) => field.onChange(content)}
+                          placeholder="Provide drop-off location details if applicable..."
+                          error={false}
+                        />
+                      )}
+                    />
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors.details?.dropOffLocation?.message}
                     </p>
                   </div>
 
