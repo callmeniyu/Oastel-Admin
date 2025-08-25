@@ -1483,6 +1483,7 @@ export default function AddTransferPage() {
                           }}
                           placeholder="Describe what makes this transfer service special..."
                           error={!!errors.details?.about}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1506,6 +1507,7 @@ export default function AddTransferPage() {
                           }}
                           placeholder="Detail the transfer route, stops, and schedule..."
                           error={!!errors.details?.itinerary}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1527,6 +1529,7 @@ export default function AddTransferPage() {
                           onChange={(content) => field.onChange(content)}
                           placeholder="Provide drop-off location details if applicable..."
                           error={false}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1606,6 +1609,7 @@ export default function AddTransferPage() {
                                 }}
                                 placeholder="Provide the exact pickup location(s) - specific addresses, meeting points, landmarks, etc."
                                 error={!!errors.details?.pickupLocation}
+                                contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                               />
                             )}
                           />
@@ -1629,6 +1633,7 @@ export default function AddTransferPage() {
                                 }}
                                 placeholder="Provide additional instructions, contact information, timing details, what customers should expect, etc."
                                 error={!!errors.details?.pickupDescription}
+                                contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                               />
                             )}
                           />
@@ -1654,6 +1659,7 @@ export default function AddTransferPage() {
                               }}
                               placeholder="Describe what pickup information customers should provide (e.g., 'Please provide your hotel name and full address' or 'Specify your pickup location within the city center')..."
                               error={!!errors.details?.pickupDescription}
+                              contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                             />
                           )}
                         />
@@ -1679,6 +1685,7 @@ export default function AddTransferPage() {
                           }}
                           placeholder="Luggage restrictions, cancellation policy, contact information, etc..."
                           error={!!errors.details?.note}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1743,6 +1750,7 @@ export default function AddTransferPage() {
                                 }}
                                 placeholder="Enter answer"
                                 error={!!errors.details?.faq?.[index]?.answer}
+                                contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                               />
                             )}
                           />

@@ -898,28 +898,30 @@ export default function AddTourPage() {
                     </p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Child Price (RM) *
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...register("childPrice", { valueAsNumber: true })}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          errors.childPrice
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                        placeholder="0.00"
-                      />
+                  {watchType !== "private" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Child Price (RM) *
+                      </label>
+                      <div className="relative">
+                        <input
+                          {...register("childPrice", { valueAsNumber: true })}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={`w-full px-3 py-2 border rounded-md ${
+                            errors.childPrice
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.childPrice?.message}
+                      </p>
                     </div>
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.childPrice?.message}
-                    </p>
-                  </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -936,29 +938,33 @@ export default function AddTourPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Minimum Persons *
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...register("minimumPerson", { valueAsNumber: true })}
-                        type="number"
-                        min="1"
-                        step="1"
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          errors.minimumPerson
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                        placeholder="1"
-                      />
-                      <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  {watchType !== "private" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Minimum Persons *
+                      </label>
+                      <div className="relative">
+                        <input
+                          {...register("minimumPerson", {
+                            valueAsNumber: true,
+                          })}
+                          type="number"
+                          min="1"
+                          step="1"
+                          className={`w-full px-3 py-2 border rounded-md ${
+                            errors.minimumPerson
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
+                          placeholder="1"
+                        />
+                        <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      </div>
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.minimumPerson?.message}
+                      </p>
                     </div>
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.minimumPerson?.message}
-                    </p>
-                  </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1092,6 +1098,7 @@ export default function AddTourPage() {
                           }}
                           placeholder="Describe what makes this tour special..."
                           error={!!errors.details?.about}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1115,6 +1122,7 @@ export default function AddTourPage() {
                           }}
                           placeholder="Detail the tour schedule step by step..."
                           error={!!errors.details?.itinerary}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1138,6 +1146,7 @@ export default function AddTourPage() {
                           }}
                           placeholder="Describe pickup locations, meeting points, or transportation details..."
                           error={!!errors.details?.pickupLocation}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1161,6 +1170,7 @@ export default function AddTourPage() {
                           }}
                           placeholder="Optional: provide any pickup guidelines or special instructions for guests..."
                           error={!!errors.details?.pickupGuidelines}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1184,6 +1194,7 @@ export default function AddTourPage() {
                           }}
                           placeholder="What to bring, restrictions, dress code, weather considerations, etc..."
                           error={!!errors.details?.note}
+                          contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                         />
                       )}
                     />
@@ -1248,6 +1259,7 @@ export default function AddTourPage() {
                                 }}
                                 placeholder="Enter answer"
                                 error={!!errors.details?.faq?.[index]?.answer}
+                                contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                               />
                             )}
                           />

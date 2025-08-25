@@ -52,39 +52,135 @@ export default function BookingConfirmation({
     try {
       setIsDownloading(true);
 
-      // Generate PDF using same approach as customer booking confirmation
-      if (!wrapperRef.current) {
+      if (!wrapperRef.current)
         throw new Error("Confirmation wrapper not found");
-      }
 
-      const canvas = await html2canvas(wrapperRef.current, {
-        scale: 2,
+      const pdfWidthMm = 210;
+      const pdfHeightMm = 297;
+      const dpi = 96;
+      const pxPerMm = dpi / 25.4;
+      const pagePaddingMm = 12;
+      const targetPxWidth = Math.round(
+        (pdfWidthMm - pagePaddingMm * 2) * pxPerMm
+      );
+
+      const wrapper = document.createElement("div");
+      wrapper.style.width = `${targetPxWidth}px`;
+      wrapper.style.boxSizing = "border-box";
+      wrapper.style.padding = "0";
+      wrapper.style.background = "#ffffff";
+      wrapper.style.fontFamily = "Poppins, Arial, Helvetica, sans-serif";
+      wrapper.style.position = "fixed";
+      wrapper.style.left = `0`;
+      wrapper.style.top = `-99999px`;
+
+      const clone = wrapperRef.current.cloneNode(true) as HTMLElement;
+      clone.style.width = "100%";
+      clone.style.boxSizing = "border-box";
+
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+
+      const scale = 2;
+      const canvas = await html2canvas(wrapper, {
+        scale,
         useCORS: true,
         allowTaint: false,
         backgroundColor: "#ffffff",
       });
 
+      document.body.removeChild(wrapper);
+
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
 
-      const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = 295; // A4 height in mm
+      const pxToMm = (px: number) => (px / (dpi * scale)) * 25.4;
+      const imgWidthMm = pxToMm(canvas.width);
+      const imgHeightMm = pxToMm(canvas.height);
 
-      const imgProps = {
-        width: pdfWidth,
-        height: (canvas.height * pdfWidth) / canvas.width,
-      };
+      const maxImgWidthMm = pdfWidthMm - pagePaddingMm * 2;
+      const fitScaleVert = pdfHeightMm / imgHeightMm;
+      const fitScaleWidth = maxImgWidthMm / imgWidthMm;
+      const fitScale = Math.min(fitScaleVert, fitScaleWidth, 1);
+      const minAllowedScale = 0.6;
 
-      if (imgProps.height > pdfHeight) {
-        imgProps.width = (canvas.width * pdfHeight) / canvas.height;
-        imgProps.height = pdfHeight;
+      if (fitScale >= 1 || fitScale >= minAllowedScale) {
+        const scaleToUse = Math.min(fitScale, 1);
+        const sCanvas = document.createElement("canvas");
+        sCanvas.width = Math.round(canvas.width * scaleToUse);
+        sCanvas.height = Math.round(canvas.height * scaleToUse);
+        const sCtx = sCanvas.getContext("2d");
+        if (!sCtx) throw new Error("Canvas context not available");
+        sCtx.fillStyle = "#ffffff";
+        sCtx.fillRect(0, 0, sCanvas.width, sCanvas.height);
+        sCtx.drawImage(
+          canvas,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+          0,
+          0,
+          sCanvas.width,
+          sCanvas.height
+        );
+
+        const pageImgData = sCanvas.toDataURL("image/png");
+        const pageImgWidthMm = pxToMm(sCanvas.width);
+        const pageImgHeightMm = pxToMm(sCanvas.height);
+        const x = (pdfWidthMm - pageImgWidthMm) / 2;
+        const y = (pdfHeightMm - pageImgHeightMm) / 2;
+        pdf.addImage(pageImgData, "PNG", x, y, pageImgWidthMm, pageImgHeightMm);
+        pdf.save(`booking-confirmation-${bookingData.bookingId}.pdf`);
+      } else {
+        const pages = Math.ceil(imgHeightMm / pdfHeightMm);
+
+        for (let i = 0; i < pages; i++) {
+          const sY = (i * pdfHeightMm * (dpi * scale)) / 25.4;
+          const pageCanvas = document.createElement("canvas");
+          const pagePxWidth = canvas.width;
+          const pagePxHeight = Math.min(
+            canvas.height - sY,
+            Math.round((pdfHeightMm * (dpi * scale)) / 25.4)
+          );
+          pageCanvas.width = pagePxWidth;
+          pageCanvas.height = pagePxHeight;
+          const ctx = pageCanvas.getContext("2d");
+          if (!ctx) throw new Error("Canvas context not available");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(
+            canvas,
+            0,
+            sY,
+            pageCanvas.width,
+            pageCanvas.height,
+            0,
+            0,
+            pageCanvas.width,
+            pageCanvas.height
+          );
+
+          const pageImgData = pageCanvas.toDataURL("image/png");
+          const pageImgHeightMm = pxToMm(pageCanvas.height);
+          const pageImgWidthMm = pxToMm(pageCanvas.width);
+
+          const x = (pdfWidthMm - pageImgWidthMm) / 2;
+          const y = 0;
+
+          pdf.addImage(
+            pageImgData,
+            "PNG",
+            x,
+            y,
+            pageImgWidthMm,
+            pageImgHeightMm
+          );
+          if (i < pages - 1) pdf.addPage();
+        }
+
+        pdf.save(`booking-confirmation-${bookingData.bookingId}.pdf`);
       }
-
-      const x = (pdfWidth - imgProps.width) / 2;
-      const y = (pdfHeight - imgProps.height) / 2;
-
-      pdf.addImage(imgData, "PNG", x, y, imgProps.width, imgProps.height);
-      pdf.save(`booking-confirmation-${bookingData.bookingId}.pdf`);
 
       toast.success("Booking confirmation downloaded!");
     } catch (error) {

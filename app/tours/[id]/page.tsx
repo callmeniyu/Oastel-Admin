@@ -1197,6 +1197,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                             }}
                             placeholder="Describe what makes this tour special..."
                             error={!!errors.details?.about}
+                            contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                           />
                         )}
                       />
@@ -1220,6 +1221,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                             }}
                             placeholder="Detail the tour schedule step by step..."
                             error={!!errors.details?.itinerary}
+                            contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                           />
                         )}
                       />
@@ -1243,6 +1245,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                             }}
                             placeholder="Describe pickup locations, meeting points, or transportation details..."
                             error={!!errors.details?.pickupLocation}
+                            contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                           />
                         )}
                       />
@@ -1266,6 +1269,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                             }}
                             placeholder="Optional: provide any pickup guidelines or special instructions for guests..."
                             error={!!errors.details?.pickupGuidelines}
+                            contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                           />
                         )}
                       />
@@ -1289,6 +1293,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                             }}
                             placeholder="What to bring, restrictions, dress code, weather considerations, etc..."
                             error={!!errors.details?.note}
+                            contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                           />
                         )}
                       />
@@ -1353,6 +1358,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                                   }}
                                   placeholder="Enter answer"
                                   error={!!errors.details?.faq?.[index]?.answer}
+                                  contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                                 />
                               )}
                             />
