@@ -22,6 +22,8 @@ type Package = {
   startTime: string;
   price: string;
   isAvailable: boolean; // Slot availability status
+  vehicle?: string; // Vehicle name for private transfers
+  transferType?: string; // Transfer type (Private, Van, etc.)
 };
 
 export default function BookingsPage() {
@@ -33,6 +35,7 @@ export default function BookingsPage() {
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isLoadingPackages, setIsLoadingPackages] = useState(false);
+  const [vehicles, setVehicles] = useState<any[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const router = useRouter();
 
@@ -44,6 +47,7 @@ export default function BookingsPage() {
   useEffect(() => {
     fetchRealBookings();
     fetchPackages();
+    fetchVehicles();
 
     // Set up auto-refresh for booking counts every 30 seconds
     const autoRefreshInterval = setInterval(() => {
@@ -86,6 +90,18 @@ export default function BookingsPage() {
       console.error("Error fetching packages:", error);
     } finally {
       setIsLoadingPackages(false);
+    }
+  };
+
+  const fetchVehicles = async () => {
+    try {
+      const response = await fetch("/api/vehicles");
+      const data = await response.json();
+      if (data.success) {
+        setVehicles(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching vehicles:", error);
     }
   };
 
@@ -174,6 +190,21 @@ export default function BookingsPage() {
       if (!booking.packageId || !booking.packageId._id) return;
       const key = `${booking.packageId._id}-${booking.time}`;
       if (!bookingMap.has(key)) {
+        // Determine maxSlots: prefer vehicle.units for private transfers if available
+        let maxSlots = booking.packageId?.maximumPerson || 15;
+        try {
+          const isPrivate =
+            booking.packageId?.type === "Private" ||
+            booking.packageId?.type === "private";
+          const vehicleName = booking.packageId?.vehicle;
+          if (isPrivate && vehicleName && Array.isArray(vehicles)) {
+            const v = vehicles.find((x) => x.name === vehicleName);
+            if (v && typeof v.units === "number") maxSlots = v.units;
+          }
+        } catch (err) {
+          // ignore and fallback
+        }
+
         bookingMap.set(key, {
           id: booking.packageId._id,
           title: booking.packageId?.title || `${booking.packageType} Package`,
@@ -182,15 +213,21 @@ export default function BookingsPage() {
             booking.packageId?.period?.toLowerCase() ||
             (booking.packageType === "tour" ? "half-day" : undefined),
           currentBookings: 0,
-          maxSlots: booking.packageId?.maximumPerson || 15,
+          maxSlots,
           startTime: booking.time,
           price: `RM ${booking.packageId?.newPrice || booking.total}`,
           isAvailable: true, // Default to available, will be updated with actual slot data
           bookings: [], // <-- Fix: always initialize bookings array
+          vehicle: booking.packageId?.vehicle || undefined,
+          transferType: booking.packageId?.type || undefined,
         });
       }
       const packageData = bookingMap.get(key);
-      packageData.currentBookings += booking.adults + booking.children;
+      // Count vehicle bookings as 1 (per-vehicle) instead of adults+children
+      const increment = booking.isVehicleBooking
+        ? 1
+        : (booking.adults || 0) + (booking.children || 0);
+      packageData.currentBookings += increment;
       packageData.bookings.push(booking);
     });
 
@@ -222,6 +259,17 @@ export default function BookingsPage() {
         });
       } else {
         // No bookings for this package on this date, show as available
+        let maxSlots = pkg.maximumPerson || 15;
+        try {
+          const isPrivate = pkg.type === "Private" || pkg.type === "private";
+          if (isPrivate && pkg.vehicle && Array.isArray(vehicles)) {
+            const v = vehicles.find((x) => x.name === pkg.vehicle);
+            if (v && typeof v.units === "number") maxSlots = v.units;
+          }
+        } catch (err) {
+          // ignore
+        }
+
         mergedPackages.push({
           id: pkg._id,
           title: pkg.title || "Package",
@@ -230,10 +278,12 @@ export default function BookingsPage() {
             pkg.period?.toLowerCase() ||
             (pkg.packageType === "tour" ? "half-day" : undefined),
           currentBookings: 0,
-          maxSlots: pkg.maximumPerson || 15,
+          maxSlots,
           startTime: pkg.departureTimes?.[0] || pkg.times?.[0] || "Multiple",
           price: `RM ${pkg.newPrice || 0}`,
           isAvailable: true, // Default to available
+          vehicle: pkg.vehicle || undefined,
+          transferType: pkg.type || undefined,
         });
       }
     });
@@ -510,6 +560,7 @@ export default function BookingsPage() {
                             formatDate={formatDate}
                             toggleSlotStatus={toggleSlotStatus}
                             isLoadingBookings={isLoadingBookings}
+                            vehicles={vehicles}
                           />
                         ))}
                       </div>
@@ -529,6 +580,7 @@ export default function BookingsPage() {
                           formatDate={formatDate}
                           toggleSlotStatus={toggleSlotStatus}
                           isLoadingBookings={isLoadingBookings}
+                          vehicles={vehicles}
                         />
                       ))}
                     </div>
@@ -579,6 +631,7 @@ function PackageCard({
   formatDate,
   toggleSlotStatus,
   isLoadingBookings,
+  vehicles,
 }: {
   package: Package;
   selectedDate: Date;
@@ -591,8 +644,37 @@ function PackageCard({
     currentStatus: "active" | "sold"
   ) => Promise<void>;
   isLoadingBookings: boolean;
+  vehicles: any[];
 }) {
   const router = useRouter();
+
+  // Calculate vehicle availability for private transfers
+  const getVehicleAvailability = () => {
+    if (
+      pkg.type === "transfer" &&
+      pkg.transferType === "Private" &&
+      pkg.vehicle
+    ) {
+      const vehicle = vehicles.find((v) => v.name === pkg.vehicle);
+      if (vehicle) {
+        // For private transfers, each booking takes 1 vehicle
+        const availableVehicles = vehicle.units - pkg.currentBookings;
+        return {
+          available: Math.max(0, availableVehicles),
+          total: vehicle.units,
+          isVehicleDisplay: true,
+        };
+      }
+    }
+    // Default for non-private transfers or when vehicle not found
+    return {
+      available: pkg.maxSlots - pkg.currentBookings,
+      total: pkg.maxSlots,
+      isVehicleDisplay: false,
+    };
+  };
+
+  const availability = getVehicleAvailability();
 
   const handlePackageClick = () => {
     const dateStr = formatDate(selectedDate);
@@ -603,7 +685,7 @@ function PackageCard({
 
   const getAvailabilityColor = () => {
     if (!pkg.isAvailable) return "text-red-600";
-    const percentage = (pkg.currentBookings / pkg.maxSlots) * 100;
+    const percentage = (pkg.currentBookings / availability.total) * 100;
     if (percentage >= 90) return "text-red-600";
     if (percentage >= 70) return "text-yellow-600";
     return "text-green-600";
@@ -611,7 +693,7 @@ function PackageCard({
 
   const getAvailabilityBg = () => {
     if (!pkg.isAvailable) return "bg-red-50 border-red-200";
-    const percentage = (pkg.currentBookings / pkg.maxSlots) * 100;
+    const percentage = (pkg.currentBookings / availability.total) * 100;
     if (percentage >= 90) return "bg-red-50 border-red-200";
     if (percentage >= 70) return "bg-yellow-50 border-yellow-200";
     return "bg-green-50 border-green-200";
@@ -664,25 +746,26 @@ function PackageCard({
           <FiUsers className="text-light" />
           <span className="text-sm text-light">Bookings:</span>
           <span className={`text-sm font-medium ${getAvailabilityColor()}`}>
-            {pkg.currentBookings} / {pkg.maxSlots}
+            {pkg.currentBookings} / {availability.total}
           </span>
         </div>
 
         <div className="text-right">
           <div className="text-xs text-light">
-            {pkg.maxSlots - pkg.currentBookings} slots available
+            {availability.available}{" "}
+            {availability.isVehicleDisplay ? "vehicles" : "slots"} available
           </div>
           <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
             <div
               className={`h-2 rounded-full ${
-                (pkg.currentBookings / pkg.maxSlots) * 100 >= 90
+                (pkg.currentBookings / availability.total) * 100 >= 90
                   ? "bg-red-500"
-                  : (pkg.currentBookings / pkg.maxSlots) * 100 >= 70
+                  : (pkg.currentBookings / availability.total) * 100 >= 70
                   ? "bg-yellow-500"
                   : "bg-green-500"
               }`}
               style={{
-                width: `${(pkg.currentBookings / pkg.maxSlots) * 100}%`,
+                width: `${(pkg.currentBookings / availability.total) * 100}%`,
               }}
             ></div>
           </div>
