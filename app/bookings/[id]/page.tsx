@@ -163,6 +163,20 @@ export default function PackageDetailsPage() {
     }
   };
 
+  // Determine if the current package is a private package
+  const isPackagePrivate = (() => {
+    try {
+      if (!packageDetails) return false;
+      const t =
+        packageDetails.type ||
+        packageDetails.transferType ||
+        packageDetails.packageType;
+      return typeof t === "string" && t.toLowerCase() === "private";
+    } catch (err) {
+      return false;
+    }
+  })();
+
   const totalCustomers = customers.reduce(
     (sum, customer) => sum + customer.adults + customer.children,
     0
@@ -465,7 +479,14 @@ export default function PackageDetailsPage() {
                     <div className="flex items-center gap-2 text-light">
                       <FiUser className="text-xs" />
                       <span>
-                        {customer.adults} adults, {customer.children} children
+                        {isPackagePrivate ? (
+                          <span className="font-medium">Private</span>
+                        ) : (
+                          <>
+                            {customer.adults} adults, {customer.children}{" "}
+                            children
+                          </>
+                        )}
                       </span>
                     </div>
                     {customer.pickupLocation && (

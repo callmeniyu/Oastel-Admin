@@ -27,9 +27,11 @@ interface BookingConfirmationProps {
     packageType: "tour" | "transfer";
     packageTitle: string;
     date: string;
-    time: string;
-    adults: number;
-    children: number;
+  time?: string;
+  adults?: number;
+  children?: number;
+  // optional flag for private packages
+  isPrivate?: boolean;
     pickupLocation: string;
     customerName: string;
     customerEmail: string;
@@ -249,9 +251,18 @@ export default function BookingConfirmation({
                 <div>
                   <p className="text-sm text-gray-600">Guests</p>
                   <p className="font-medium">
-                    {bookingData.adults} Adult(s)
-                    {bookingData.children > 0 &&
-                      `, ${bookingData.children} Children`}
+                    {bookingData.isPrivate ? (
+                      "Private"
+                    ) : bookingData.adults !== undefined ? (
+                      <>
+                        {bookingData.adults} Adult(s)
+                        {bookingData.children && bookingData.children > 0 &&
+                          `, ${bookingData.children} Children`}
+                      </>
+                    ) : (
+                      // fallback when data missing
+                      "N/A"
+                    )}
                   </p>
                 </div>
               </div>

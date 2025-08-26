@@ -172,15 +172,37 @@ export default function BookingsPage() {
     const dateStr = formatDate(date);
     const safeBookings = Array.isArray(bookings) ? bookings : [];
 
+    // Helper: normalize booking.date into local YYYY-MM-DD string
+    function bookingDateToLocalYYYYMMDD(dateInput: any): string {
+      try {
+        if (!dateInput) return "";
+        if (dateInput instanceof Date) {
+          return formatDate(dateInput);
+        }
+        if (
+          typeof dateInput === "string" &&
+          /^\d{4}-\d{2}-\d{2}$/.test(dateInput)
+        ) {
+          return dateInput;
+        }
+        if (typeof dateInput === "string") {
+          const isoLike = /^\d{4}-\d{2}-\d{2}$/.test(dateInput);
+          const parsed = new Date(
+            isoLike ? dateInput + "T12:00:00" : dateInput
+          );
+          if (isNaN(parsed.getTime())) return "";
+          return formatDate(parsed);
+        }
+        return "";
+      } catch (err) {
+        return "";
+      }
+    }
+
     // Filter bookings for the selected date
     const dateBookings = safeBookings.filter((booking) => {
       if (!booking || !booking.date) return false;
-      let bookingDateStr;
-      if (booking.date.length >= 10) {
-        bookingDateStr = booking.date.slice(0, 10); // YYYY-MM-DD
-      } else {
-        bookingDateStr = formatDateFromString(booking.date);
-      }
+      const bookingDateStr = bookingDateToLocalYYYYMMDD(booking.date);
       return bookingDateStr === dateStr;
     });
 
@@ -380,12 +402,21 @@ export default function BookingsPage() {
       Array.isArray(realBookings) &&
       realBookings.some((booking) => {
         if (!booking || !booking.date) return false;
-        let bookingDateStr;
-        if (booking.date.length >= 10) {
-          bookingDateStr = booking.date.slice(0, 10);
-        } else {
-          bookingDateStr = formatDateFromString(booking.date);
-        }
+        const bookingDateStr = (function (d: any) {
+          try {
+            if (!d) return "";
+            if (d instanceof Date) return formatDate(d);
+            if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))
+              return d;
+            const parsed = new Date(
+              /^\d{4}-\d{2}-\d{2}$/.test(d) ? d + "T12:00:00" : d
+            );
+            if (isNaN(parsed.getTime())) return "";
+            return formatDate(parsed);
+          } catch {
+            return "";
+          }
+        })(booking.date);
         return bookingDateStr === dateStr;
       });
     const isSelected = isSameDay(date, selectedDate);
@@ -716,6 +747,23 @@ function PackageCard({
     return null;
   };
 
+  const getPrivateBadge = () => {
+    try {
+      const t = pkg.transferType || pkg.type;
+      if (!t) return null;
+      if (typeof t === "string" && t.toLowerCase() === "private") {
+        return (
+          <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+            Private
+          </span>
+        );
+      }
+    } catch (err) {
+      return null;
+    }
+    return null;
+  };
+
   // Status display is now handled by the badge, no toggle functionality in card
 
   return (
@@ -728,6 +776,7 @@ function PackageCard({
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-semibold text-dark">{pkg.title}</h3>
             {getDurationBadge()}
+            {getPrivateBadge()}
           </div>
           <div className="flex items-center gap-4 text-sm text-light">
             <div className="flex items-center gap-1">
