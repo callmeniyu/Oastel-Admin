@@ -306,7 +306,8 @@ export default function AdminBookingModal({
           adults,
           children,
           // mark if this package is private so consumers can render appropriately
-          isPrivate: (packageDetails.type || "").toString().toLowerCase() === "private",
+          isPrivate:
+            (packageDetails.type || "").toString().toLowerCase() === "private",
           pickupLocation: pickupLocation.trim(),
           customerName: contactInfo.name.trim(),
           customerEmail: contactInfo.email.trim(),

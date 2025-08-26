@@ -27,11 +27,11 @@ interface BookingConfirmationProps {
     packageType: "tour" | "transfer";
     packageTitle: string;
     date: string;
-  time?: string;
-  adults?: number;
-  children?: number;
-  // optional flag for private packages
-  isPrivate?: boolean;
+    time?: string;
+    adults?: number;
+    children?: number;
+    // optional flag for private packages
+    isPrivate?: boolean;
     pickupLocation: string;
     customerName: string;
     customerEmail: string;
@@ -256,7 +256,8 @@ export default function BookingConfirmation({
                     ) : bookingData.adults !== undefined ? (
                       <>
                         {bookingData.adults} Adult(s)
-                        {bookingData.children && bookingData.children > 0 &&
+                        {bookingData.children &&
+                          bookingData.children > 0 &&
                           `, ${bookingData.children} Children`}
                       </>
                     ) : (
