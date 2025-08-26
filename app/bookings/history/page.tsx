@@ -24,6 +24,8 @@ type HistoryBooking = {
   children: number;
   total: number;
   status: "pending" | "confirmed" | "cancelled";
+  // include completed for history
+  // status can now be 'completed' as well
   createdAt: string;
 };
 
@@ -41,7 +43,8 @@ export default function BookingHistoryPage() {
   const fetchBookingHistory = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/bookings");
+      // Only fetch completed bookings for the history page
+      const response = await fetch("/api/bookings?status=completed");
       const data = await response.json();
 
       if (data.success) {

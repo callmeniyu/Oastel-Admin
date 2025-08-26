@@ -28,6 +28,9 @@ interface Customer {
   };
   adults: number;
   children: number;
+  // Booking date and time
+  date: string;
+  time: string;
   pickupLocation?: string;
   status: "pending" | "confirmed" | "cancelled";
   total: number;
@@ -176,6 +179,37 @@ export default function PackageDetailsPage() {
       return false;
     }
   })();
+
+  const formatDateTime = (
+    dateStr: string | undefined,
+    timeStr: string | undefined
+  ) => {
+    try {
+      const d = dateStr ? new Date(dateStr) : null;
+      const datePart = d
+        ? d.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
+        : "";
+
+      let timePart = timeStr || "";
+      if (timePart) {
+        const [hh, mm] = timePart.split(":");
+        const hour = parseInt(hh || "0", 10);
+        const ampm = hour >= 12 ? "PM" : "AM";
+        const hour12 = hour % 12 || 12;
+        timePart = `${hour12}:${mm || "00"} ${ampm}`;
+      }
+
+      return `${datePart}${
+        datePart && timePart ? " — " : ""
+      }${timePart}`.trim();
+    } catch {
+      return `${dateStr || ""} ${timeStr || ""}`.trim();
+    }
+  };
 
   const totalCustomers = customers.reduce(
     (sum, customer) => sum + customer.adults + customer.children,
@@ -468,6 +502,12 @@ export default function PackageDetailsPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-light">
+                      <FiCalendar className="text-xs" />
+                      <span>
+                        {formatDateTime(customer.date, customer.time)}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-2 text-light">
                       <FiMail className="text-xs" />
                       <span>{customer.contactInfo.email}</span>

@@ -26,6 +26,8 @@ interface BookingConfirmationProps {
     bookingId: string;
     packageType: "tour" | "transfer";
     packageTitle: string;
+    packageFrom?: string;
+    packageTo?: string;
     date: string;
     time?: string;
     adults?: number;
@@ -212,6 +214,11 @@ export default function BookingConfirmation({
               <p className="text-sm text-gray-600">
                 Booking ID: {bookingData.bookingId}
               </p>
+              {bookingData.packageTitle && (
+                <p className="text-sm text-gray-600">
+                  {bookingData.packageTitle}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -230,6 +237,14 @@ export default function BookingConfirmation({
               Package Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {bookingData.packageFrom && bookingData.packageTo && (
+                <div className="col-span-1 md:col-span-2">
+                  <p className="text-sm text-gray-600">Route</p>
+                  <p className="font-medium">
+                    {bookingData.packageFrom} → {bookingData.packageTo}
+                  </p>
+                </div>
+              )}
               <div className="flex items-center space-x-3">
                 <FiCalendar className="w-5 h-5 text-gray-400" />
                 <div>

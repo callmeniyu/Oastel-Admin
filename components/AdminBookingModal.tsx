@@ -199,7 +199,11 @@ export default function AdminBookingModal({
     const availableCapacity = selectedSlot.capacity - selectedSlot.bookedCount;
     if (totalGuests > availableCapacity) {
       toast.error(
-        `Only ${availableCapacity} seats available for this time slot`
+        `Only ${availableCapacity} ${
+          packageType === "transfer" && packageDetails.type === "Private"
+            ? "units"
+            : "seats"
+        } available for this time slot`
       );
       return false;
     }
@@ -301,6 +305,9 @@ export default function AdminBookingModal({
           bookingId: data.data._id || data.data.id || `BK${Date.now()}`,
           packageType,
           packageTitle: packageDetails.title,
+          // include route info for transfers so confirmation can show it
+          packageFrom: packageDetails.from,
+          packageTo: packageDetails.to,
           date: format(selectedDate, "yyyy-MM-dd"),
           time: selectedTime,
           adults,
@@ -436,7 +443,12 @@ export default function AdminBookingModal({
                       >
                         {formatTimeDisplay(slot.time)}
                         {isSlotAvailable
-                          ? ` (${availableSeats} seats available)`
+                          ? ` (${availableSeats} ${
+                              packageType === "transfer" &&
+                              packageDetails.type === "Private"
+                                ? "units"
+                                : "seats"
+                            } available)`
                           : " (Fully booked)"}
                       </option>
                     );

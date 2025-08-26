@@ -70,9 +70,7 @@ const transferSchema = z
         .string()
         .min(100, "Itinerary must be at least 100 characters"),
       pickupOption: z.enum(["admin", "user"]),
-      pickupLocation: z
-        .string()
-        .min(10, "Pickup location must be at least 10 characters"),
+      pickupLocation: z.string().optional(), // Make optional, validate conditionally
       dropOffLocation: z.string().optional(),
       pickupDescription: z.string().optional(),
       note: z.string().min(10, "Note must be at least 10 characters"),
@@ -124,7 +122,10 @@ const transferSchema = z
     (data) => {
       // For admin-defined pickup, only location is required
       if (data.details.pickupOption === "admin") {
-        return data.details.pickupLocation.length >= 10;
+        return (
+          data.details.pickupLocation &&
+          data.details.pickupLocation.length >= 10
+        );
       }
       return true; // No validation needed for user-defined here
     },
