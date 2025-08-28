@@ -17,7 +17,7 @@ export interface TransferType {
     minimumPerson: number
     maximumPerson?: number
     times: string[]
-    label?: "Recommended" | "Popular" | "Best Value" | null
+    label?: "Recommended" | "Popular" | "Best Value" | "Best seller" | null
     from: string
     to: string
     details: {

@@ -52,7 +52,13 @@ const tourSchema = z
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
-    label: z.enum(["Recommended", "Popular", "Best Value", "None"]),
+    label: z.enum([
+      "Recommended",
+      "Popular",
+      "Best Value",
+      "Best seller",
+      "None",
+    ]),
     details: z.object({
       about: z
         .string()
@@ -63,7 +69,9 @@ const tourSchema = z
       pickupLocation: z
         .string()
         .min(10, "Pickup location must be at least 10 characters"),
-      pickupGuidelines: z.string().optional(),
+      pickupGuidelines: z
+        .string()
+        .min(15, "Pickup guidelines must be at least 15 characters"),
       note: z.string().min(10, "Note must be at least 10 characters"),
       faq: z.array(
         z.object({
@@ -935,6 +943,7 @@ export default function AddTourPage() {
                       <option value="Recommended">Recommended</option>
                       <option value="Popular">Popular</option>
                       <option value="Best Value">Best Value</option>
+                      <option value="Best seller">Best seller</option>
                     </select>
                   </div>
 

@@ -55,7 +55,13 @@ const tourSchema = z
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
-    label: z.enum(["Recommended", "Popular", "Best Value", "None"]),
+    label: z.enum([
+      "Recommended",
+      "Popular",
+      "Best Value",
+      "Best seller",
+      "None",
+    ]),
     details: z.object({
       about: z
         .string()
@@ -1034,6 +1040,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                         <option value="Recommended">Recommended</option>
                         <option value="Popular">Popular</option>
                         <option value="Best Value">Best Value</option>
+                        <option value="Best seller">Best seller</option>
                       </select>
                     </div>
 

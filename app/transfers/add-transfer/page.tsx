@@ -61,7 +61,13 @@ const transferSchema = z
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
-    label: z.enum(["Recommended", "Popular", "Best Value", "None"]),
+    label: z.enum([
+      "Recommended",
+      "Popular",
+      "Best Value",
+      "Best seller",
+      "None",
+    ]),
     details: z.object({
       about: z
         .string()
@@ -72,7 +78,9 @@ const transferSchema = z
       pickupOption: z.enum(["admin", "user"]),
       pickupLocation: z.string().optional(), // Make optional, validate conditionally
       dropOffLocation: z.string().optional(),
-      pickupDescription: z.string().optional(),
+      pickupDescription: z
+        .string()
+        .min(15, "Pickup guidelines must be at least 15 characters"),
       note: z.string().min(10, "Note must be at least 10 characters"),
       faq: z.array(
         z.object({
@@ -136,17 +144,14 @@ const transferSchema = z
   )
   .refine(
     (data) => {
-      // For user-defined pickup, only description is required
-      if (data.details.pickupOption === "user") {
-        return (
-          data.details.pickupDescription &&
-          data.details.pickupDescription.length >= 10
-        );
-      }
-      return true; // No validation needed for admin-defined here
+      // Pickup description (guidelines) is now always required with 15 characters minimum
+      return (
+        data.details.pickupDescription &&
+        data.details.pickupDescription.length >= 15
+      );
     },
     {
-      message: "Pickup description must be at least 10 characters",
+      message: "Pickup guidelines must be at least 15 characters",
       path: ["details.pickupDescription"],
     }
   )
@@ -441,6 +446,14 @@ export default function AddTransferPage() {
     if (watchType !== "Private") {
       setValue("vehicle", "");
       clearErrors("vehicle");
+    }
+  }, [watchType, setValue, clearErrors]);
+
+  // Set minimumPerson to 1 for Private transfers (vehicle booking, not person-based)
+  useEffect(() => {
+    if (watchType === "Private") {
+      setValue("minimumPerson", 1);
+      clearErrors("minimumPerson");
     }
   }, [watchType, setValue, clearErrors]);
 
@@ -1258,6 +1271,7 @@ export default function AddTransferPage() {
                       <option value="Recommended">Recommended</option>
                       <option value="Popular">Popular</option>
                       <option value="Best Value">Best Value</option>
+                      <option value="Best seller">Best seller</option>
                     </select>
                   </div>
 
@@ -1326,29 +1340,34 @@ export default function AddTransferPage() {
                     </p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Minimum Persons *
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...register("minimumPerson", { valueAsNumber: true })}
-                        type="number"
-                        min="1"
-                        step="1"
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          errors.minimumPerson
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                        placeholder="1"
-                      />
-                      <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  {/* Conditionally show minimum persons field only for non-private transfers */}
+                  {watchType !== "Private" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Minimum Persons *
+                      </label>
+                      <div className="relative">
+                        <input
+                          {...register("minimumPerson", {
+                            valueAsNumber: true,
+                          })}
+                          type="number"
+                          min="1"
+                          step="1"
+                          className={`w-full px-3 py-2 border rounded-md ${
+                            errors.minimumPerson
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
+                          placeholder="1"
+                        />
+                        <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      </div>
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.minimumPerson?.message}
+                      </p>
                     </div>
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.minimumPerson?.message}
-                    </p>
-                  </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1621,7 +1640,7 @@ export default function AddTransferPage() {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Pickup Instructions & Description *
+                            Pickup Guidelines *
                           </label>
                           <Controller
                             name="details.pickupDescription"
@@ -1647,7 +1666,7 @@ export default function AddTransferPage() {
                       // User-defined pickup - show description field only
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Pickup Location Description *
+                          Pickup Guidelines *
                         </label>
                         <Controller
                           name="details.pickupDescription"

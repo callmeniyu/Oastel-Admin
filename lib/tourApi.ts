@@ -17,7 +17,7 @@ export interface TourType {
     minimumPerson: number
     maximumPerson?: number
     departureTimes: string[]
-    label?: "Recommended" | "Popular" | "Best Value" | null
+    label?: "Recommended" | "Popular" | "Best Value" | "Best seller" | null
     details: {
         about: string
         itinerary: string
