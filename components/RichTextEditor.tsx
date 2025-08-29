@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
 import {
   FiBold,
   FiItalic,
@@ -42,6 +43,12 @@ export default function RichTextEditor({
           keepAttributes: false,
         },
       }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: "text-blue-600 underline cursor-pointer hover:text-blue-800",
+        },
+      }),
     ],
     content,
     immediatelyRender: false,
@@ -53,7 +60,7 @@ export default function RichTextEditor({
         // allow callers to override editable content area styles
         class:
           contentClassName ||
-          "prose prose-sm max-w-none focus:outline-none min-h-[120px] p-4 text-sm",
+          "prose prose-sm max-w-none focus:outline-none min-h-[120px] p-4 text-sm prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4",
       },
     },
   });
@@ -202,18 +209,21 @@ export default function RichTextEditor({
         {/* Clear formatting */}
         <button
           type="button"
-          onClick={() =>
-            editor.chain().focus().clearNodes().unsetAllMarks().run()
-          }
+          onClick={() => {
+            editor.chain().focus().clearNodes().unsetAllMarks().run();
+            // Also clear all content
+            editor.commands.setContent("");
+            onChange("");
+          }}
           className="p-2 rounded hover:bg-gray-200"
-          title="Clear Formatting"
+          title="Clear All Content"
         >
           <span className="text-sm">Clear</span>
         </button>
       </div>
 
       {/* Editor */}
-      <div className="bg-white rounded-b-md">
+      <div className="bg-white rounded-b-md rich-text-editor">
         <EditorContent editor={editor} placeholder={placeholder} />
       </div>
     </div>

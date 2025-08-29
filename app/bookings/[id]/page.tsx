@@ -17,7 +17,10 @@ import {
   FiX,
   FiChevronDown,
   FiChevronUp,
+  FiTrash2,
 } from "react-icons/fi";
+import Confirmation from "@/components/ui/Confirmation";
+import { toast } from "react-hot-toast";
 
 interface Customer {
   _id: string;
@@ -55,6 +58,15 @@ export default function PackageDetailsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isTimeslotSectionExpanded, setIsTimeslotSectionExpanded] =
     useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    bookingId: string;
+    customerName: string;
+  }>({
+    isOpen: false,
+    bookingId: "",
+    customerName: "",
+  });
 
   useEffect(() => {
     if (packageId && date && time) {
@@ -151,6 +163,63 @@ export default function PackageDetailsPage() {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleDeleteBooking = async (bookingId: string) => {
+    try {
+      setIsUpdating(true);
+
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Refresh the customer list and time slots after successful deletion
+        await fetchPackageCustomers();
+        await fetchTimeSlots();
+
+        // Close the confirmation dialog
+        setDeleteConfirmation({
+          isOpen: false,
+          bookingId: "",
+          customerName: "",
+        });
+        // Show success toast
+        toast.success("Booking deleted successfully");
+      } else {
+        console.error(
+          "Failed to delete booking:",
+          data.error || "Unknown error"
+        );
+        toast.error("Failed to delete booking. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error deleting booking:", error);
+      toast.error("An error occurred while deleting the booking.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const openDeleteConfirmation = (bookingId: string, customerName: string) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      bookingId,
+      customerName,
+    });
+  };
+
+  const closeDeleteConfirmation = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      bookingId: "",
+      customerName: "",
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -491,14 +560,30 @@ export default function PackageDetailsPage() {
                         </p>
                       </div>
                     </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                        customer.status
-                      )}`}
-                    >
-                      {customer.status.charAt(0).toUpperCase() +
-                        customer.status.slice(1)}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                          customer.status
+                        )}`}
+                      >
+                        {customer.status.charAt(0).toUpperCase() +
+                          customer.status.slice(1)}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDeleteConfirmation(
+                            customer._id,
+                            customer.contactInfo.name
+                          );
+                        }}
+                        disabled={isUpdating}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete booking"
+                      >
+                        <FiTrash2 className="text-lg" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
@@ -549,6 +634,28 @@ export default function PackageDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Confirmation
+        isOpen={deleteConfirmation.isOpen}
+        onClose={closeDeleteConfirmation}
+        onConfirm={() => handleDeleteBooking(deleteConfirmation.bookingId)}
+        title="Delete Booking"
+        message={
+          <div>
+            <p>Are you sure you want to delete the booking for:</p>
+            <p className="font-semibold mt-2">
+              {deleteConfirmation.customerName}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              This action cannot be undone.
+            </p>
+          </div>
+        }
+        confirmText="Yes, Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
 
       <MobileNav />
     </div>
