@@ -54,9 +54,18 @@ const transferSchema = z
     bookedCount: z.number().min(0),
     oldPrice: z.number().min(0, "Old price must be 0 or greater"),
     newPrice: z.number().min(0, "New price must be 0 or greater"),
-    childPrice: z.number().min(0, "Child price must be 0 or greater"),
-    minimumPerson: z.number().min(1, "Minimum must be at least 1 person"),
-    maximumPerson: z.number().min(1, "Maximum must be at least 1 person"),
+    childPrice: z
+      .number()
+      .min(0, "Child price must be 0 or greater")
+      .optional(),
+    minimumPerson: z
+      .number()
+      .min(1, "Minimum must be at least 1 person")
+      .optional(),
+    maximumPerson: z
+      .number()
+      .min(1, "Maximum must be at least 1 person")
+      .optional(),
     seatCapacity: z.number().min(1, "Seat capacity must be at least 1"),
     departureTimes: z
       .array(z.string())
@@ -102,7 +111,31 @@ const transferSchema = z
   )
   .refine(
     (data) => {
-      if (data.maximumPerson <= data.minimumPerson) {
+      // Validate required fields for non-Private transfers
+      if (data.type !== "Private") {
+        return (
+          data.childPrice !== undefined &&
+          data.minimumPerson !== undefined &&
+          data.maximumPerson !== undefined
+        );
+      }
+      return true;
+    },
+    {
+      message:
+        "Child price, minimum persons, and maximum persons are required for non-Private transfers",
+      path: ["type"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Only validate minimum/maximum for non-Private transfers
+      if (
+        data.type !== "Private" &&
+        data.maximumPerson &&
+        data.minimumPerson &&
+        data.maximumPerson <= data.minimumPerson
+      ) {
         return false;
       }
       return true;
@@ -552,7 +585,10 @@ export default function EditTransferPage({
                 transfer.details?.pickupOption === "admin"
                   ? transfer.details?.pickupLocations || ""
                   : "",
-              pickupDescription: transfer.details?.pickupLocations || "",
+              pickupDescription:
+                transfer.details?.pickupOption === "admin"
+                  ? transfer.details?.pickupDescription || ""
+                  : transfer.details?.pickupLocations || "",
               note: transfer.details?.note || "",
               faq:
                 transfer.details?.faq && transfer.details.faq.length > 0
@@ -788,11 +824,17 @@ export default function EditTransferPage({
         details: {
           ...data.details,
           faq: validFaqs,
-          // For admin-defined pickup, use pickupLocation; for user-defined, use pickupDescription
+          // For admin-defined pickup: save both pickupLocation and pickupDescription
+          // For user-defined pickup: save only pickupDescription to pickupLocations field
           pickupLocations:
             data.details.pickupOption === "admin"
               ? data.details.pickupLocation || ""
               : data.details.pickupDescription || "",
+          // Only save pickupDescription for admin-defined pickup
+          pickupDescription:
+            data.details.pickupOption === "admin"
+              ? data.details.pickupDescription || ""
+              : undefined,
         },
         // Map form field names to API field names
         desc: data.description,
@@ -817,9 +859,12 @@ export default function EditTransferPage({
           typeof data.seatCapacity === "number"
             ? data.seatCapacity
             : rest.seatCapacity,
-        // include drop off locations merged into details
+        // include all details including pickup fields
         details: {
           ...(detailsRest as any),
+          // Preserve the pickup fields we prepared above
+          pickupLocations: transferData.details.pickupLocations,
+          pickupDescription: transferData.details.pickupDescription,
           dropOffLocations:
             data.details.dropOffLocation ||
             ((detailsRest as any)?.dropOffLocations as any) ||
@@ -827,6 +872,11 @@ export default function EditTransferPage({
         },
       };
       console.log("Updating transfer:", finalTransferData); // Debug log
+      console.log("Pickup fields being saved:", {
+        pickupOption: data.details.pickupOption,
+        pickupLocations: finalTransferData.details.pickupLocations,
+        pickupDescription: finalTransferData.details.pickupDescription,
+      }); // Debug log for pickup fields
 
       // Call the API to update the transfer
       const response = await transferApi.updateTransfer(
@@ -1516,28 +1566,31 @@ export default function EditTransferPage({
                       </p>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Child Price (RM) *
-                      </label>
-                      <div className="relative">
-                        <input
-                          {...register("childPrice", { valueAsNumber: true })}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className={`w-full px-3 py-2 border rounded-md ${
-                            errors.childPrice
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                          placeholder="0.00"
-                        />
+                    {/* Conditionally show child price field only for non-private transfers */}
+                    {watchType !== "Private" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Child Price (RM) *
+                        </label>
+                        <div className="relative">
+                          <input
+                            {...register("childPrice", { valueAsNumber: true })}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className={`w-full px-3 py-2 border rounded-md ${
+                              errors.childPrice
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            }`}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.childPrice?.message}
+                        </p>
                       </div>
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.childPrice?.message}
-                      </p>
-                    </div>
+                    )}
 
                     {/* Conditionally show minimum persons field only for non-private transfers */}
                     {watchType !== "Private" && (
@@ -1568,31 +1621,34 @@ export default function EditTransferPage({
                       </div>
                     )}
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Maximum Persons *
-                      </label>
-                      <div className="relative">
-                        <input
-                          {...register("maximumPerson", {
-                            valueAsNumber: true,
-                          })}
-                          type="number"
-                          min="1"
-                          step="1"
-                          className={`w-full px-3 py-2 border rounded-md ${
-                            errors.maximumPerson
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                          placeholder="10"
-                        />
-                        <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    {/* Conditionally show maximum persons field only for non-private transfers */}
+                    {watchType !== "Private" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Maximum Persons *
+                        </label>
+                        <div className="relative">
+                          <input
+                            {...register("maximumPerson", {
+                              valueAsNumber: true,
+                            })}
+                            type="number"
+                            min="1"
+                            step="1"
+                            className={`w-full px-3 py-2 border rounded-md ${
+                              errors.maximumPerson
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            }`}
+                            placeholder="10"
+                          />
+                          <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        </div>
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.maximumPerson?.message}
+                        </p>
                       </div>
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.maximumPerson?.message}
-                      </p>
-                    </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1839,7 +1895,7 @@ export default function EditTransferPage({
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Pickup Instructions & Description *
+                              Pickup Guidelines *
                             </label>
                             <Controller
                               name="details.pickupDescription"
@@ -1865,7 +1921,7 @@ export default function EditTransferPage({
                         // User-defined pickup - show description field only
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Pickup Location Description *
+                            Pickup Guidelines *
                           </label>
                           <Controller
                             name="details.pickupDescription"

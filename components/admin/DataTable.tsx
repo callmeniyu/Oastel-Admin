@@ -54,15 +54,6 @@ export default function DataTable({
                       className="px-4 py-3 whitespace-nowrap"
                     >
                       <div className="flex items-center space-x-2">
-                        {rowActions.includes("edit") && (
-                          <button
-                            onClick={() => actionHandlers?.onEdit?.(row)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Edit"
-                          >
-                            <FiEdit2 />
-                          </button>
-                        )}
                         {rowActions.includes("book") && (
                           <button
                             onClick={() => actionHandlers?.onBook?.(row)}
@@ -70,6 +61,15 @@ export default function DataTable({
                             title="Book Package"
                           >
                             <FiCalendar />
+                          </button>
+                        )}
+                        {rowActions.includes("edit") && (
+                          <button
+                            onClick={() => actionHandlers?.onEdit?.(row)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Edit"
+                          >
+                            <FiEdit2 />
                           </button>
                         )}
                         {rowActions.includes("delete") && (
