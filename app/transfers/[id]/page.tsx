@@ -87,7 +87,7 @@ const transferSchema = z
       pickupOption: z.enum(["admin", "user"]),
       pickupLocation: z.string().optional(), // Make optional, validate conditionally
       dropOffLocation: z.string().optional(),
-      pickupDescription: z.string().optional(),
+      pickupGuidelines: z.string().optional(),
       note: z.string().min(10, "Note must be at least 10 characters"),
       faq: z.array(
         z.object({
@@ -178,15 +178,15 @@ const transferSchema = z
       // For user-defined pickup, only description is required
       if (data.details.pickupOption === "user") {
         return (
-          data.details.pickupDescription &&
-          data.details.pickupDescription.length >= 10
+          data.details.pickupGuidelines &&
+          data.details.pickupGuidelines.length >= 10
         );
       }
       return true; // No validation needed for admin-defined here
     },
     {
-      message: "Pickup description must be at least 10 characters",
-      path: ["details.pickupDescription"],
+      message: "Pickup guidelines must be at least 10 characters",
+      path: ["details.pickupGuidelines"],
     }
   )
   .refine(
@@ -421,7 +421,7 @@ export default function EditTransferPage({
   const watchTo = watch("to");
   const watchPickupOption = watch("details.pickupOption");
   const watchDetailsPickupLocation = watch("details.pickupLocation");
-  const watchDetailsPickupDescription = watch("details.pickupDescription");
+  const watchDetailsPickupGuidelines = watch("details.pickupGuidelines");
 
   // Reset validation state when any form field changes
   useEffect(() => {
@@ -452,7 +452,7 @@ export default function EditTransferPage({
     watchTo,
     watchPickupOption,
     watchDetailsPickupLocation,
-    watchDetailsPickupDescription,
+    watchDetailsPickupGuidelines,
     isLoading,
     isNavigating,
   ]);
@@ -585,9 +585,11 @@ export default function EditTransferPage({
                 transfer.details?.pickupOption === "admin"
                   ? transfer.details?.pickupLocations || ""
                   : "",
-              pickupDescription:
+              pickupGuidelines:
                 transfer.details?.pickupOption === "admin"
-                  ? transfer.details?.pickupDescription || ""
+                  ? (transfer.details as any)?.pickupGuidelines ||
+                    (transfer.details as any)?.pickupDescription ||
+                    ""
                   : transfer.details?.pickupLocations || "",
               note: transfer.details?.note || "",
               faq:
@@ -824,16 +826,16 @@ export default function EditTransferPage({
         details: {
           ...data.details,
           faq: validFaqs,
-          // For admin-defined pickup: save both pickupLocation and pickupDescription
-          // For user-defined pickup: save only pickupDescription to pickupLocations field
+          // For admin-defined pickup: save both pickupLocation and pickupGuidelines
+          // For user-defined pickup: save only pickupGuidelines to pickupLocations field
           pickupLocations:
             data.details.pickupOption === "admin"
               ? data.details.pickupLocation || ""
-              : data.details.pickupDescription || "",
-          // Only save pickupDescription for admin-defined pickup
-          pickupDescription:
+              : data.details.pickupGuidelines || "",
+          // Only save pickupGuidelines for admin-defined pickup
+          pickupGuidelines:
             data.details.pickupOption === "admin"
-              ? data.details.pickupDescription || ""
+              ? data.details.pickupGuidelines || ""
               : undefined,
         },
         // Map form field names to API field names
@@ -845,7 +847,7 @@ export default function EditTransferPage({
       const {
         description,
         departureTimes,
-        details: { pickupLocation, pickupDescription, ...detailsRest },
+        details: { pickupLocation, pickupGuidelines, ...detailsRest },
         ...rest
       } = transferData;
       const finalTransferData = {
@@ -864,7 +866,7 @@ export default function EditTransferPage({
           ...(detailsRest as any),
           // Preserve the pickup fields we prepared above
           pickupLocations: transferData.details.pickupLocations,
-          pickupDescription: transferData.details.pickupDescription,
+          pickupGuidelines: transferData.details.pickupGuidelines,
           dropOffLocations:
             data.details.dropOffLocation ||
             ((detailsRest as any)?.dropOffLocations as any) ||
@@ -875,7 +877,7 @@ export default function EditTransferPage({
       console.log("Pickup fields being saved:", {
         pickupOption: data.details.pickupOption,
         pickupLocations: finalTransferData.details.pickupLocations,
-        pickupDescription: finalTransferData.details.pickupDescription,
+        pickupGuidelines: finalTransferData.details.pickupGuidelines,
       }); // Debug log for pickup fields
 
       // Call the API to update the transfer
@@ -1898,7 +1900,7 @@ export default function EditTransferPage({
                               Pickup Guidelines *
                             </label>
                             <Controller
-                              name="details.pickupDescription"
+                              name="details.pickupGuidelines"
                               control={control}
                               render={({ field }) => (
                                 <RichTextEditor
@@ -1907,13 +1909,13 @@ export default function EditTransferPage({
                                     field.onChange(content);
                                   }}
                                   placeholder="Provide additional instructions, contact information, timing details, what customers should expect, etc."
-                                  error={!!errors.details?.pickupDescription}
+                                  error={!!errors.details?.pickupGuidelines}
                                   contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                                 />
                               )}
                             />
                             <p className="text-xs text-red-500 mt-1">
-                              {errors.details?.pickupDescription?.message}
+                              {errors.details?.pickupGuidelines?.message}
                             </p>
                           </div>
                         </div>
@@ -1924,7 +1926,7 @@ export default function EditTransferPage({
                             Pickup Guidelines *
                           </label>
                           <Controller
-                            name="details.pickupDescription"
+                            name="details.pickupGuidelines"
                             control={control}
                             render={({ field }) => (
                               <RichTextEditor
@@ -1933,13 +1935,13 @@ export default function EditTransferPage({
                                   field.onChange(content);
                                 }}
                                 placeholder="Describe what pickup information customers should provide (e.g., 'Please provide your hotel name and full address' or 'Specify your pickup location within the city center')..."
-                                error={!!errors.details?.pickupDescription}
+                                error={!!errors.details?.pickupGuidelines}
                                 contentClassName="focus:outline-none min-h-[120px] p-4 text-sm leading-6"
                               />
                             )}
                           />
                           <p className="text-xs text-red-500 mt-1">
-                            {errors.details?.pickupDescription?.message}
+                            {errors.details?.pickupGuidelines?.message}
                           </p>
                         </div>
                       )}
