@@ -49,6 +49,8 @@ const tourSchema = z
     childPrice: z.number().min(0, "Child price must be 0 or greater"),
     minimumPerson: z.number().min(1, "Minimum must be at least 1 person"),
     maximumPerson: z.number().min(1, "Maximum must be at least 1 person"),
+    vehicle: z.string().optional(),
+    seatCapacity: z.number().optional(),
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
@@ -95,7 +97,7 @@ const tourSchema = z
   )
   .refine(
     (data) => {
-      if (data.maximumPerson <= data.minimumPerson) {
+      if (data.type !== "private" && data.maximumPerson <= data.minimumPerson) {
         return false;
       }
       return true;
@@ -103,6 +105,21 @@ const tourSchema = z
     {
       message: "Maximum persons must be greater than minimum persons",
       path: ["maximumPerson"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (
+        data.type === "private" &&
+        (!data.vehicle || data.vehicle.trim() === "")
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Vehicle is required for private tours",
+      path: ["vehicle"],
     }
   );
 
@@ -160,6 +177,12 @@ const CollapsibleSection = ({
 
 export default function AddTourPage() {
   const router = useRouter();
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
+  const [vehicleName, setVehicleName] = useState("");
+  const [vehicleUnits, setVehicleUnits] = useState(1);
+  const [vehicleSeats, setVehicleSeats] = useState(4);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slugLoading, setSlugLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -198,6 +221,8 @@ export default function AddTourPage() {
     childPrice: 0,
     minimumPerson: 1,
     maximumPerson: 10,
+    vehicle: "",
+    seatCapacity: 4,
     tags: [],
     details: {
       about: "",
@@ -241,6 +266,7 @@ export default function AddTourPage() {
   const watchChildPrice = watch("childPrice");
   const watchMinimumPerson = watch("minimumPerson");
   const watchMaximumPerson = watch("maximumPerson");
+  const watchVehicle = watch("vehicle");
   const watchPeriod = watch("period");
   const watchLabel = watch("label");
   const watchSlug = watch("slug");
@@ -367,6 +393,7 @@ export default function AddTourPage() {
     watchChildPrice,
     watchMinimumPerson,
     watchMaximumPerson,
+    watchVehicle,
     watchPeriod,
     watchLabel,
     watchSlug,
@@ -376,6 +403,7 @@ export default function AddTourPage() {
     watchDetailsPickupLocation,
     watchDetailsNote,
     watchDetailsFaq,
+    watchDetailsPickupGuidelines,
     // Removed hasValidated from dependencies to prevent interference with validation
   ]);
 
@@ -389,6 +417,72 @@ export default function AddTourPage() {
       return () => clearTimeout(timer);
     }
   }, [showValidationErrors, validationSuccess]);
+
+  // Fetch vehicles for private tour selection
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`
+        );
+        const data = await res.json();
+        if (data.success) setVehicles(data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch vehicles", err);
+      }
+    };
+    fetchVehicles();
+  }, []);
+
+  // Clear vehicle field when tour type changes from Private to other types
+  useEffect(() => {
+    if (watchType !== "private") {
+      setValue("vehicle", "");
+      setValue("seatCapacity", undefined as any);
+    }
+  }, [watchType, setValue]);
+
+  // Set minimumPerson to 1 for Private tours (vehicle booking, not person-based)
+  useEffect(() => {
+    if (watchType === "private") {
+      setValue("minimumPerson", 1);
+    }
+  }, [watchType, setValue]);
+
+  const createVehicle = async () => {
+    if (!vehicleName.trim()) return toast.error("Vehicle name required");
+    setVehicleSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: vehicleName.trim(),
+            units: vehicleUnits,
+            seats: vehicleSeats,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setVehicles((v) => [...v, data.data]);
+        setShowAddVehicle(false);
+        setVehicleName("");
+        setVehicleSeats(4);
+        setVehicleUnits(1);
+        toast.success("Vehicle created");
+      } else {
+        toast.error(data.message || "Failed to create vehicle");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create vehicle");
+    } finally {
+      setVehicleSubmitting(false);
+    }
+  };
 
   // Handle save tour button click - validate first, then save if valid
   const handleSaveTour = async () => {
@@ -864,6 +958,189 @@ export default function AddTourPage() {
                     </p>
                   </div>
 
+                  {/* Vehicle field - only show for Private tours */}
+                  {watchType === "private" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Vehicle Name *
+                      </label>
+                      <div className="flex gap-2">
+                        <Controller
+                          name="vehicle"
+                          control={control}
+                          render={({ field }) => (
+                            <select
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                const v = vehicles.find(
+                                  (x) => x.name === e.target.value
+                                );
+                                if (v) {
+                                  setValue("seatCapacity", Number(v.seats));
+                                }
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                            >
+                              <option value="">Select a vehicle</option>
+                              {vehicles.map((v) => (
+                                <option key={v._id} value={v.name}>
+                                  {v.name} ({v.units} units • {v.seats} seats)
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAddVehicle(true)}
+                          className="px-3 py-2 bg-primary text-white rounded-md"
+                        >
+                          <FiPlus />
+                        </button>
+                      </div>
+                      {errors.vehicle && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.vehicle.message}
+                        </p>
+                      )}
+
+                      {/* Add Vehicle Modal (popup) */}
+                      {showAddVehicle && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center">
+                          {/* backdrop */}
+                          <div
+                            className="absolute inset-0 bg-black/40"
+                            onClick={() => setShowAddVehicle(false)}
+                          />
+                          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md p-6 z-10">
+                            <h4 className="text-lg font-semibold">
+                              Add new vehicle
+                            </h4>
+                            <div className="mt-4 space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  1. Vehicle name
+                                </label>
+                                <input
+                                  value={vehicleName}
+                                  onChange={(e) =>
+                                    setVehicleName(e.target.value)
+                                  }
+                                  placeholder="e.g., Toyota Innova"
+                                  className="w-full px-3 py-2 border rounded-md"
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  2. Units (number of identical vehicles)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    aria-label="decrease units"
+                                    onClick={() =>
+                                      setVehicleUnits(
+                                        Math.max(1, vehicleUnits - 1)
+                                      )
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    value={vehicleUnits}
+                                    onChange={(e) =>
+                                      setVehicleUnits(
+                                        Math.max(1, Number(e.target.value || 1))
+                                      )
+                                    }
+                                    min={1}
+                                    className="w-20 px-2 py-1 border rounded-md text-center"
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label="increase units"
+                                    onClick={() =>
+                                      setVehicleUnits(vehicleUnits + 1)
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  3. Seats (per vehicle)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    aria-label="decrease seats"
+                                    onClick={() =>
+                                      setVehicleSeats(
+                                        Math.max(1, vehicleSeats - 1)
+                                      )
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    value={vehicleSeats}
+                                    onChange={(e) =>
+                                      setVehicleSeats(
+                                        Math.max(1, Number(e.target.value || 1))
+                                      )
+                                    }
+                                    min={1}
+                                    className="w-20 px-2 py-1 border rounded-md text-center"
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label="increase seats"
+                                    onClick={() =>
+                                      setVehicleSeats(vehicleSeats + 1)
+                                    }
+                                    className="px-3 py-1 border rounded-md"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex justify-end gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAddVehicle(false)}
+                                  className="px-4 py-2 border rounded-md"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={createVehicle}
+                                  disabled={vehicleSubmitting}
+                                  className="px-4 py-2 bg-primary text-white rounded-md"
+                                >
+                                  {vehicleSubmitting
+                                    ? "Creating..."
+                                    : "Create vehicle"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Old Price (RM) *
@@ -975,29 +1252,33 @@ export default function AddTourPage() {
                     </div>
                   )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Maximum Persons *
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...register("maximumPerson", { valueAsNumber: true })}
-                        type="number"
-                        min="1"
-                        step="1"
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          errors.maximumPerson
-                            ? "border-red-500"
-                            : "border-gray-300"
-                        }`}
-                        placeholder="10"
-                      />
-                      <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  {watchType !== "private" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Maximum Persons *
+                      </label>
+                      <div className="relative">
+                        <input
+                          {...register("maximumPerson", {
+                            valueAsNumber: true,
+                          })}
+                          type="number"
+                          min="1"
+                          step="1"
+                          className={`w-full px-3 py-2 border rounded-md ${
+                            errors.maximumPerson
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
+                          placeholder="10"
+                        />
+                        <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      </div>
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.maximumPerson?.message}
+                      </p>
                     </div>
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.maximumPerson?.message}
-                    </p>
-                  </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1307,12 +1588,7 @@ export default function AddTourPage() {
                       <TourCardPreview
                         id={1}
                         slug={watchSlug || "sample-tour"}
-                        image={
-                          uploadedImageUrl ||
-                          watchImage ||
-                          imagePreview ||
-                          "/images/placeholder-tour.jpg"
-                        }
+                        image={uploadedImageUrl || watchImage || imagePreview}
                         title={watchTitle || "Sample Tour Title"}
                         tags={
                           watchTags && watchTags.length > 0
@@ -1470,6 +1746,15 @@ export default function AddTourPage() {
                               <span>
                                 <strong>Maximum Persons:</strong>{" "}
                                 {errors.maximumPerson.message}
+                              </span>
+                            </li>
+                          )}
+                          {errors.vehicle && (
+                            <li className="flex items-start">
+                              <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
+                              <span>
+                                <strong>Vehicle:</strong>{" "}
+                                {errors.vehicle.message}
                               </span>
                             </li>
                           )}

@@ -93,7 +93,9 @@ export default function TransferCardPreview({
           ))}
         </div>
         <p className="text-gray-500 text-sm font-poppins">
-          {desc || "Sample transfer description..."}
+          {(desc && desc.length > 65
+            ? desc.slice(0, 65).trimEnd() + "..."
+            : desc) || "Sample transfer description..."}
         </p>
         <div className="flex justify-between">
           <div className="flex flex-col gap-2">

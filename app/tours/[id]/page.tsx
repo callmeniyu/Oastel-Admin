@@ -52,6 +52,8 @@ const tourSchema = z
     childPrice: z.number().min(0, "Child price must be 0 or greater"),
     minimumPerson: z.number().min(1, "Minimum must be at least 1 person"),
     maximumPerson: z.number().min(1, "Maximum must be at least 1 person"),
+    vehicle: z.string().optional(),
+    seatCapacity: z.number().optional(),
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
@@ -98,7 +100,7 @@ const tourSchema = z
   )
   .refine(
     (data) => {
-      if (data.maximumPerson <= data.minimumPerson) {
+      if (data.type !== "private" && data.maximumPerson <= data.minimumPerson) {
         return false;
       }
       return true;
@@ -106,6 +108,21 @@ const tourSchema = z
     {
       message: "Maximum persons must be greater than minimum persons",
       path: ["maximumPerson"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (
+        data.type === "private" &&
+        (!data.vehicle || data.vehicle.trim() === "")
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Vehicle is required for private tours",
+      path: ["vehicle"],
     }
   );
 
@@ -164,6 +181,12 @@ const CollapsibleSection = ({
 export default function EditTourPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { id: tourId } = params;
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
+  const [vehicleName, setVehicleName] = useState("");
+  const [vehicleUnits, setVehicleUnits] = useState(1);
+  const [vehicleSeats, setVehicleSeats] = useState(4);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [slugLoading, setSlugLoading] = useState(false);
@@ -205,6 +228,8 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
     childPrice: 0,
     minimumPerson: 1,
     maximumPerson: 10,
+    vehicle: "",
+    seatCapacity: 4,
     tags: [],
     details: {
       about: "",
@@ -248,6 +273,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
   const watchChildPrice = watch("childPrice");
   const watchMinimumPerson = watch("minimumPerson");
   const watchMaximumPerson = watch("maximumPerson");
+  const watchVehicle = watch("vehicle");
   const watchPeriod = watch("period");
   const watchStatus = watch("status");
   const watchLabel = watch("label");
@@ -286,6 +312,8 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
             childPrice: tour.childPrice || 0,
             minimumPerson: tour.minimumPerson || 1,
             maximumPerson: tour.maximumPerson || 10,
+            vehicle: (tour as any).vehicle || "",
+            seatCapacity: (tour as any).seatCapacity || 4,
             departureTimes: tour.departureTimes || ["08:00"],
             label:
               (tour.label as
@@ -359,6 +387,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
     watchChildPrice,
     watchMinimumPerson,
     watchMaximumPerson,
+    watchVehicle,
     watchPeriod,
     watchStatus,
     watchLabel,
@@ -371,6 +400,72 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
     watchDetailsFaq,
     isLoading,
   ]);
+
+  // Fetch vehicles for private tour selection
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`
+        );
+        const data = await res.json();
+        if (data.success) setVehicles(data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch vehicles", err);
+      }
+    };
+    fetchVehicles();
+  }, []);
+
+  // Clear vehicle field when tour type changes from Private to other types
+  useEffect(() => {
+    if (watchType !== "private") {
+      setValue("vehicle", "");
+      setValue("seatCapacity", undefined as any);
+    }
+  }, [watchType, setValue]);
+
+  // Set minimumPerson to 1 for Private tours (vehicle booking, not person-based)
+  useEffect(() => {
+    if (watchType === "private") {
+      setValue("minimumPerson", 1);
+    }
+  }, [watchType, setValue]);
+
+  const createVehicle = async () => {
+    if (!vehicleName.trim()) return toast.error("Vehicle name required");
+    setVehicleSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: vehicleName.trim(),
+            units: vehicleUnits,
+            seats: vehicleSeats,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setVehicles((v) => [...v, data.data]);
+        setShowAddVehicle(false);
+        setVehicleName("");
+        setVehicleSeats(4);
+        setVehicleUnits(1);
+        toast.success("Vehicle created");
+      } else {
+        toast.error(data.message || "Failed to create vehicle");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create vehicle");
+    } finally {
+      setVehicleSubmitting(false);
+    }
+  };
 
   // Auto-hide validation errors after 8 seconds
   useEffect(() => {
@@ -1005,28 +1100,67 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                       </p>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Child Price (RM) *
-                      </label>
-                      <div className="relative">
-                        <input
-                          {...register("childPrice", { valueAsNumber: true })}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className={`w-full px-3 py-2 border rounded-md ${
-                            errors.childPrice
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                          placeholder="0.00"
-                        />
+                    {watchType !== "private" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Child Price (RM) *
+                        </label>
+                        <div className="relative">
+                          <input
+                            {...register("childPrice", { valueAsNumber: true })}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className={`w-full px-3 py-2 border rounded-md ${
+                              errors.childPrice
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            }`}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.childPrice?.message}
+                        </p>
                       </div>
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.childPrice?.message}
-                      </p>
-                    </div>
+                    )}
+
+                    {/* Vehicle Selection for Private Tours */}
+                    {watchType === "private" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Vehicle *
+                        </label>
+                        <div className="flex gap-2">
+                          <select
+                            {...register("vehicle")}
+                            className={`flex-1 px-3 py-2 border rounded-md ${
+                              errors.vehicle
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            }`}
+                          >
+                            <option value="">Select Vehicle</option>
+                            {vehicles.map((vehicle) => (
+                              <option key={vehicle._id} value={vehicle._id}>
+                                {vehicle.name} ({vehicle.units} units,{" "}
+                                {vehicle.seats} seats)
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddVehicle(true)}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1"
+                          >
+                            <FiPlus size={16} />
+                          </button>
+                        </div>
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.vehicle?.message}
+                        </p>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1044,57 +1178,62 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Minimum Persons *
-                      </label>
-                      <div className="relative">
-                        <input
-                          {...register("minimumPerson", {
-                            valueAsNumber: true,
-                          })}
-                          type="number"
-                          min="1"
-                          step="1"
-                          className={`w-full px-3 py-2 border rounded-md ${
-                            errors.minimumPerson
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                          placeholder="1"
-                        />
-                        <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                      </div>
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.minimumPerson?.message}
-                      </p>
-                    </div>
+                    {/* Show person capacity fields only for non-private tours */}
+                    {watchType !== "private" && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Minimum Persons *
+                          </label>
+                          <div className="relative">
+                            <input
+                              {...register("minimumPerson", {
+                                valueAsNumber: true,
+                              })}
+                              type="number"
+                              min="1"
+                              step="1"
+                              className={`w-full px-3 py-2 border rounded-md ${
+                                errors.minimumPerson
+                                  ? "border-red-500"
+                                  : "border-gray-300"
+                              }`}
+                              placeholder="1"
+                            />
+                            <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                          </div>
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors.minimumPerson?.message}
+                          </p>
+                        </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Maximum Persons *
-                      </label>
-                      <div className="relative">
-                        <input
-                          {...register("maximumPerson", {
-                            valueAsNumber: true,
-                          })}
-                          type="number"
-                          min="1"
-                          step="1"
-                          className={`w-full px-3 py-2 border rounded-md ${
-                            errors.maximumPerson
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                          placeholder="10"
-                        />
-                        <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                      </div>
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.maximumPerson?.message}
-                      </p>
-                    </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Maximum Persons *
+                          </label>
+                          <div className="relative">
+                            <input
+                              {...register("maximumPerson", {
+                                valueAsNumber: true,
+                              })}
+                              type="number"
+                              min="1"
+                              step="1"
+                              className={`w-full px-3 py-2 border rounded-md ${
+                                errors.maximumPerson
+                                  ? "border-red-500"
+                                  : "border-gray-300"
+                              }`}
+                              placeholder="10"
+                            />
+                            <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                          </div>
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors.maximumPerson?.message}
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1404,12 +1543,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                         <TourCardPreview
                           id={1}
                           slug={watchSlug || "sample-tour"}
-                          image={
-                            uploadedImageUrl ||
-                            watchImage ||
-                            imagePreview ||
-                            "/images/placeholder-tour.jpg"
-                          }
+                          image={uploadedImageUrl || watchImage || imagePreview}
                           title={watchTitle || "Sample Tour Title"}
                           tags={
                             watchTags && watchTags.length > 0
@@ -1756,6 +1890,72 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
         onClose={() => setShowClearConfirmation(false)}
         variant="danger"
       />
+
+      {/* Add Vehicle Modal */}
+      {showAddVehicle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold mb-4">Add New Vehicle</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vehicle Name *
+                </label>
+                <input
+                  type="text"
+                  value={vehicleName}
+                  onChange={(e) => setVehicleName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="Enter vehicle name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Number of Units *
+                </label>
+                <input
+                  type="number"
+                  value={vehicleUnits}
+                  onChange={(e) => setVehicleUnits(Number(e.target.value))}
+                  min="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="Enter number of units"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Seats per Vehicle *
+                </label>
+                <input
+                  type="number"
+                  value={vehicleSeats}
+                  onChange={(e) => setVehicleSeats(Number(e.target.value))}
+                  min="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="Enter seats per vehicle"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowAddVehicle(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={createVehicle}
+                disabled={vehicleSubmitting}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {vehicleSubmitting ? "Creating..." : "Create Vehicle"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

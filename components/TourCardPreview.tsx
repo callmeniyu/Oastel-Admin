@@ -35,6 +35,12 @@ const resolveImageUrl = (imagePath: string): string => {
   return `${API_BASE_URL}/${imagePath.replace(/^\//, "")}`;
 };
 
+// Truncate helper: limits string to `n` chars and appends ellipsis when needed
+const truncate = (s?: string, n = 65) => {
+  if (!s) return "";
+  return s.length > n ? s.slice(0, n).trimEnd() + "..." : s;
+};
+
 type TourCardProps = {
   id: number;
   slug: string;
@@ -101,7 +107,7 @@ export default function TourCardPreview({
       ) : (
         // Use Next.js Image for all other URLs
         <Image
-          src={resolveImageUrl(image) || "/images/placeholder-tour.jpg"}
+          src={resolveImageUrl(image) || ""}
           alt={title}
           width={400}
           height={400}
@@ -122,7 +128,9 @@ export default function TourCardPreview({
             </span>
           ))}
         </div>
-        <p className="text-gray-500 text-sm font-poppins">{desc}</p>
+        <p className="text-gray-500 text-sm font-poppins">
+          {truncate(desc, 65)}
+        </p>
         <div className="flex justify-between gap-2">
           <div className="flex gap-2 items-center font-semibold">
             <MdAccessTimeFilled width={30} className="text-primary text-lg" />
