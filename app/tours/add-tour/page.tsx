@@ -18,6 +18,7 @@ import { toast } from "react-hot-toast";
 import RichTextEditor from "@/components/RichTextEditor";
 import TourCardPreview from "@/components/TourCardPreview";
 import Confirmation from "@/components/ui/Confirmation";
+import { stripHtmlTags } from "@/lib/htmlValidation";
 
 // Schema validatiemon
 const tourSchema = z
@@ -64,17 +65,34 @@ const tourSchema = z
     details: z.object({
       about: z
         .string()
-        .min(100, "About section must be at least 100 characters"),
+        .refine(
+          (val) => stripHtmlTags(val).length >= 100,
+          "About section must be at least 100 characters"
+        ),
       itinerary: z
         .string()
-        .min(100, "Itinerary must be at least 100 characters"),
+        .refine(
+          (val) => stripHtmlTags(val).length >= 100,
+          "Itinerary must be at least 100 characters"
+        ),
       pickupLocation: z
         .string()
-        .min(10, "Pickup location must be at least 10 characters"),
+        .refine(
+          (val) => stripHtmlTags(val).length >= 10,
+          "Pickup location must be at least 10 characters"
+        ),
       pickupGuidelines: z
         .string()
-        .min(15, "Pickup guidelines must be at least 15 characters"),
-      note: z.string().min(10, "Note must be at least 10 characters"),
+        .refine(
+          (val) => !val || stripHtmlTags(val).length >= 15,
+          "Pickup guidelines must be at least 15 characters"
+        ),
+      note: z
+        .string()
+        .refine(
+          (val) => stripHtmlTags(val).length >= 10,
+          "Note must be at least 10 characters"
+        ),
       faq: z.array(
         z.object({
           question: z.string().min(1, "Question is required"),

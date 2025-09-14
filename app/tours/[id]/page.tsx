@@ -21,6 +21,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import TourCardPreview from "@/components/TourCardPreview";
 import Confirmation from "@/components/ui/Confirmation";
 import { tourApi } from "@/lib/tourApi";
+import { stripHtmlTags } from "@/lib/htmlValidation";
 
 // Schema validation
 const tourSchema = z
@@ -66,15 +67,29 @@ const tourSchema = z
     details: z.object({
       about: z
         .string()
-        .min(100, "About section must be at least 100 characters"),
+        .refine(
+          (val) => stripHtmlTags(val).length >= 100,
+          "About section must be at least 100 characters"
+        ),
       itinerary: z
         .string()
-        .min(100, "Itinerary must be at least 100 characters"),
+        .refine(
+          (val) => stripHtmlTags(val).length >= 100,
+          "Itinerary must be at least 100 characters"
+        ),
       pickupLocation: z
         .string()
-        .min(10, "Pickup location must be at least 10 characters"),
+        .refine(
+          (val) => stripHtmlTags(val).length >= 10,
+          "Pickup location must be at least 10 characters"
+        ),
       pickupGuidelines: z.string().optional(),
-      note: z.string().min(10, "Note must be at least 10 characters"),
+      note: z
+        .string()
+        .refine(
+          (val) => stripHtmlTags(val).length >= 10,
+          "Note must be at least 10 characters"
+        ),
       faq: z
         .array(
           z.object({
