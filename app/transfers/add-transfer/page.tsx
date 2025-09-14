@@ -1889,7 +1889,7 @@ export default function AddTransferPage() {
                           childPrice={watchChildPrice || 0}
                           type={watchType || "Van"}
                           label={watchLabel !== "None" ? watchLabel : null}
-                          status="active"
+                          /* status removed */
                           from={watchFrom || "Sample Origin"}
                           to={watchTo || "Sample Destination"}
                         />

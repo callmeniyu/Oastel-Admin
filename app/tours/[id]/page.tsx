@@ -45,7 +45,6 @@ const tourSchema = z
     type: z.enum(["co-tour", "private"]),
     duration: z.string().min(1, "Duration is required"),
     period: z.enum(["Half-Day", "Full-Day"]),
-    status: z.enum(["active", "sold"]),
     bookedCount: z.number().min(0),
     oldPrice: z.number().min(0, "Old price must be 0 or greater"),
     newPrice: z.number().min(0, "New price must be 0 or greater"),
@@ -220,7 +219,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
     bookedCount: 0,
     type: "co-tour" as const,
     period: "Half-Day" as const,
-    status: "active" as const,
+    // status field removed - managed automatically
     label: "None" as const,
     departureTimes: ["08:00"],
     oldPrice: 0,
@@ -275,7 +274,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
   const watchMaximumPerson = watch("maximumPerson");
   const watchVehicle = watch("vehicle");
   const watchPeriod = watch("period");
-  const watchStatus = watch("status");
+  // status removed
   const watchLabel = watch("label");
   const watchSlug = watch("slug");
   const watchDepartureTimes = watch("departureTimes");
@@ -321,7 +320,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                 | "Popular"
                 | "Best Value"
                 | "None") || "None",
-            status: (tour.status as "active" | "sold") || "active",
+            // status removed from form
             details: {
               about: tour.details?.about || "",
               itinerary: tour.details?.itinerary || "",
@@ -389,7 +388,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
     watchMaximumPerson,
     watchVehicle,
     watchPeriod,
-    watchStatus,
+    // watchStatus removed
     watchLabel,
     watchSlug,
     watchDepartureTimes,
@@ -1038,21 +1037,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                       </p>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Status *
-                      </label>
-                      <select
-                        {...register("status")}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="active">Active</option>
-                        <option value="sold">Sold Out</option>
-                      </select>
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.status?.message}
-                      </p>
-                    </div>
+                    {/* status removed from form - managed automatically */}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
