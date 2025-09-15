@@ -561,14 +561,6 @@ export default function PackageDetailsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                          customer.status
-                        )}`}
-                      >
-                        {customer.status.charAt(0).toUpperCase() +
-                          customer.status.slice(1)}
-                      </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

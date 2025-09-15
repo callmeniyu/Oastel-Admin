@@ -318,15 +318,73 @@ export default function BookingsPage() {
     selectedDate
   );
 
-  // Calculate counts for both tours and transfers from all bookings
-  const getAllPackagesForType = (packageType: "tour" | "transfer") => {
-    return processBookingsIntoPackages(realBookings, selectedDate).filter(
-      (p) => p.type === packageType
-    );
-  };
+  // Compute tour and transfer counts for the selected date independent of the active tab
+  function bookingDateToLocalYYYYMMDD(dateInput: any): string {
+    try {
+      if (!dateInput) return "";
+      if (dateInput instanceof Date) return formatDate(dateInput);
+      if (
+        typeof dateInput === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(dateInput)
+      ) {
+        return dateInput;
+      }
+      if (typeof dateInput === "string") {
+        const isoLike = /^\d{4}-\d{2}-\d{2}$/.test(dateInput);
+        const parsed = new Date(isoLike ? dateInput + "T12:00:00" : dateInput);
+        if (isNaN(parsed.getTime())) return "";
+        return formatDate(parsed);
+      }
+      return "";
+    } catch (err) {
+      return "";
+    }
+  }
 
-  const tours = getAllPackagesForType("tour");
-  const transfers = getAllPackagesForType("transfer");
+  const { tourCount, transferCount } = (function computeCounts() {
+    const dateStr = formatDate(selectedDate);
+    const safeBookings = Array.isArray(realBookings) ? realBookings : [];
+    let tCount = 0;
+    let trCount = 0;
+    for (const booking of safeBookings) {
+      if (!booking) continue;
+      const bDateStr = bookingDateToLocalYYYYMMDD(booking.date);
+      if (bDateStr !== dateStr) continue;
+      const increment = booking.isVehicleBooking
+        ? 1
+        : (booking.adults || 0) + (booking.children || 0);
+      const explicitType = (booking.packageType || "").toString().toLowerCase();
+      if (explicitType === "tour") {
+        tCount += increment;
+        continue;
+      }
+      if (explicitType === "transfer") {
+        trCount += increment;
+        continue;
+      }
+      // Fallback: check packageId.type or packageId.packageType
+      const pkgType = (
+        (booking.packageId &&
+          (booking.packageId.type || booking.packageId.packageType)) ||
+        ""
+      )
+        .toString()
+        .toLowerCase();
+      if (pkgType === "tour") tCount += increment;
+      else if (pkgType === "transfer") trCount += increment;
+    }
+    return { tourCount: tCount, transferCount: trCount };
+  })();
+
+  // Calculate counts for both tours and transfers from all bookings (always for selectedDate)
+  const allPackagesForSelectedDate = processBookingsIntoPackages(
+    realBookings,
+    selectedDate
+  );
+  const tours = allPackagesForSelectedDate.filter((p) => p.type === "tour");
+  const transfers = allPackagesForSelectedDate.filter(
+    (p) => p.type === "transfer"
+  );
 
   // Generate days for the current month view
   const daysInMonth = new Date(
@@ -633,13 +691,13 @@ export default function BookingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-3 bg-primary/5 rounded-lg">
                     <div className="text-2xl font-bold text-primary">
-                      {tours.reduce((sum, p) => sum + p.currentBookings, 0)}
+                      {tourCount}
                     </div>
                     <div className="text-sm text-light">Tour Bookings</div>
                   </div>
                   <div className="text-center p-3 bg-secondary/5 rounded-lg">
                     <div className="text-2xl font-bold text-secondary">
-                      {transfers.reduce((sum, p) => sum + p.currentBookings, 0)}
+                      {transferCount}
                     </div>
                     <div className="text-sm text-light">Transfer Bookings</div>
                   </div>
