@@ -594,8 +594,10 @@ export default function PackageDetailsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-light">
-                      <FiMail className="text-xs" />
-                      <span>{customer.contactInfo.email}</span>
+                      <FiUser className="text-xs" />
+                      <span className="">
+                        {packageDetails?.title || "Package"}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 text-light">
                       <FiPhone className="text-xs" />
