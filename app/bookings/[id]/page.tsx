@@ -611,7 +611,11 @@ export default function PackageDetailsPage() {
                     {customer.pickupLocation && (
                       <div className="flex items-center gap-2 text-light">
                         <FiMapPin className="text-xs" />
-                        <span>{customer.pickupLocation}</span>
+                        <span
+                          dangerouslySetInnerHTML={{
+                            __html: customer.pickupLocation,
+                          }}
+                        ></span>
                       </div>
                     )}
                   </div>

@@ -414,9 +414,8 @@ export default function BookingsPage() {
       currentDate.getMonth(),
       day
     );
-    if (clickedDate >= today) {
-      setSelectedDate(clickedDate);
-    }
+    // Admin can select any date (past or future)
+    setSelectedDate(clickedDate);
   };
 
   // Helper functions
@@ -445,7 +444,8 @@ export default function BookingsPage() {
   }
 
   function isBeforeToday(date: Date): boolean {
-    return date < today && !isSameDay(date, today);
+    // Admin can view all days - no date restrictions
+    return false;
   }
 
   function renderDay(day: number) {
@@ -478,7 +478,7 @@ export default function BookingsPage() {
         return bookingDateStr === dateStr;
       });
     const isSelected = isSameDay(date, selectedDate);
-    const isDisabled = isBeforeToday(date);
+    const isDisabled = false; // Admin can select any day
 
     return (
       <button
@@ -486,9 +486,7 @@ export default function BookingsPage() {
         onClick={() => handleDateClick(day)}
         disabled={isDisabled}
         className={`min-h-16 p-1 border ${
-          isDisabled
-            ? "bg-gray-100 text-gray-400"
-            : isSelected
+          isSelected
             ? "bg-primary/10 border-primary"
             : hasBookings
             ? "bg-primary/5 border-gray-100"
@@ -527,13 +525,6 @@ export default function BookingsPage() {
               title="Refresh Data"
             >
               <FiRefreshCw className="text-lg sm:text-xl" />
-            </button>
-            <button
-              onClick={() => router.push("/bookings/history")}
-              className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors sm:p-3"
-              title="View Booking History"
-            >
-              <FiClock className="text-lg sm:text-xl" />
             </button>
           </div>
         </div>
