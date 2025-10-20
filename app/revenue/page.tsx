@@ -325,7 +325,7 @@ export default function RevenuePage() {
                   Total Revenue
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  RM {revenueData.totalRevenue.toLocaleString()}
+                  RM {Math.round(revenueData.totalRevenue).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -367,7 +367,7 @@ export default function RevenuePage() {
                   Avg Booking Value
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  RM {revenueData.avgBookingValue.toFixed(0)}
+                  RM {Math.round(revenueData.avgBookingValue).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -444,7 +444,7 @@ export default function RevenuePage() {
                         {item.totalPersons}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        RM {item.revenue.toLocaleString()}
+                        RM {Math.round(item.revenue).toLocaleString()}
                       </td>
                     </tr>
                   ))}

@@ -370,7 +370,7 @@ export default function PackageDetailsPage() {
               <div className="text-center md:text-left">
                 <p className="text-light text-xs md:text-sm">Total Revenue</p>
                 <p className="text-lg md:text-2xl font-bold text-dark">
-                  RM {totalRevenue}
+                  RM {Math.round(totalRevenue).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -623,7 +623,7 @@ export default function PackageDetailsPage() {
                   <div className="mt-4 pt-4 border-t flex justify-between items-center">
                     <span className="text-light text-sm">Total Amount</span>
                     <span className="font-semibold text-primary">
-                      RM {customer.total}
+                      RM {Math.round(customer.total).toLocaleString()}
                     </span>
                   </div>
                 </div>

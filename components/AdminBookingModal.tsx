@@ -666,7 +666,12 @@ export default function AdminBookingModal({
                 <span>
                   Adults ({adults}x RM {packageDetails.newPrice})
                 </span>
-                <span>RM {(adults * packageDetails.newPrice).toFixed(2)}</span>
+                <span>
+                  RM{" "}
+                  {Math.round(
+                    adults * packageDetails.newPrice
+                  ).toLocaleString()}
+                </span>
               </div>
               {children > 0 && packageDetails.childPrice && (
                 <div className="flex justify-between">
@@ -674,13 +679,18 @@ export default function AdminBookingModal({
                     Children ({children}x RM {packageDetails.childPrice})
                   </span>
                   <span>
-                    RM {(children * packageDetails.childPrice).toFixed(2)}
+                    RM{" "}
+                    {Math.round(
+                      children * packageDetails.childPrice
+                    ).toLocaleString()}
                   </span>
                 </div>
               )}
               <div className="border-t pt-2 flex justify-between font-bold text-lg">
                 <span>Total Amount</span>
-                <span>RM {calculateTotalPrice().toFixed(2)}</span>
+                <span>
+                  RM {Math.round(calculateTotalPrice()).toLocaleString()}
+                </span>
               </div>
               <p className="text-sm text-gray-600">
                 * Admin booking - Payment collected in cash

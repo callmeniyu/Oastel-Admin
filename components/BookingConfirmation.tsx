@@ -335,7 +335,7 @@ export default function BookingConfirmation({
                 <div>
                   <p className="text-sm text-gray-600">Total Amount</p>
                   <p className="text-xl font-bold text-green-600">
-                    RM {bookingData.total.toFixed(2)}
+                    RM {Math.round(Number(bookingData.total)).toLocaleString()}
                   </p>
                 </div>
               </div>

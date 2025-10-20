@@ -70,7 +70,7 @@ export default function TransfersPage() {
           name: transfer.title,
           category: transfer.type,
           route: `${transfer.from} → ${transfer.to}`,
-          price: `RM ${transfer.newPrice.toFixed(2)}`,
+          price: `RM ${Math.round(transfer.newPrice).toLocaleString()}`,
           _id: transfer._id,
         })
       );

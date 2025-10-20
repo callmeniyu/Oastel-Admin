@@ -70,7 +70,7 @@ export default function ToursPage() {
           name: tour.title,
           category: tour.type === "co-tour" ? "Co-Tour" : "Private",
           period: tour.period,
-          price: `RM ${tour.newPrice.toFixed(2)}`,
+          price: `RM ${Math.round(tour.newPrice).toLocaleString()}`,
           _id: tour._id,
         })
       );
