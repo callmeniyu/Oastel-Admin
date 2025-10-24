@@ -18,6 +18,8 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiTrash2,
+  FiEdit,
+  FiSave,
 } from "react-icons/fi";
 import Confirmation from "@/components/ui/Confirmation";
 import { toast } from "react-hot-toast";
@@ -58,6 +60,9 @@ export default function PackageDetailsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isTimeslotSectionExpanded, setIsTimeslotSectionExpanded] =
     useState(false);
+  const [editingMinimumPerson, setEditingMinimumPerson] = useState<{
+    [slotTime: string]: string;
+  }>({});
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     bookingId: string;
@@ -163,6 +168,89 @@ export default function PackageDetailsPage() {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const updateMinimumPerson = async (
+    slotTime: string,
+    minimumPerson: number
+  ) => {
+    try {
+      setIsUpdating(true);
+
+      const response = await fetch(`/api/timeslots/minimum-person`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageType: type,
+          packageId,
+          date,
+          time: slotTime,
+          minimumPerson,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Re-fetch time slots to reflect the changes
+        await fetchTimeSlots();
+        toast.success("Minimum person updated successfully");
+        // Clear the editing state for this slot
+        setEditingMinimumPerson((prev) => {
+          const updated = { ...prev };
+          delete updated[slotTime];
+          return updated;
+        });
+      } else {
+        console.error("Failed to update minimum person:", data.error);
+        toast.error("Failed to update minimum person");
+      }
+    } catch (error) {
+      console.error("Failed to update minimum person:", error);
+      toast.error("An error occurred while updating minimum person");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleMinimumPersonChange = (slotTime: string, value: string) => {
+    setEditingMinimumPerson((prev) => ({
+      ...prev,
+      [slotTime]: value,
+    }));
+  };
+
+  const handleMinimumPersonSubmit = (
+    slotTime: string,
+    currentValue: number
+  ) => {
+    const newValue = editingMinimumPerson[slotTime];
+    const parsedValue = parseInt(newValue);
+
+    if (isNaN(parsedValue) || parsedValue < 1) {
+      toast.error("Minimum person must be a positive number");
+      return;
+    }
+
+    if (parsedValue === currentValue) {
+      // No change, just clear editing state
+      setEditingMinimumPerson((prev) => {
+        const updated = { ...prev };
+        delete updated[slotTime];
+        return updated;
+      });
+      return;
+    }
+
+    updateMinimumPerson(slotTime, parsedValue);
+  };
+
+  const cancelMinimumPersonEdit = (slotTime: string) => {
+    setEditingMinimumPerson((prev) => {
+      const updated = { ...prev };
+      delete updated[slotTime];
+      return updated;
+    });
   };
 
   const handleDeleteBooking = async (bookingId: string) => {
@@ -455,6 +543,84 @@ export default function PackageDetailsPage() {
                               <span className="font-medium">
                                 {slot.bookedCount} / {slot.capacity}
                               </span>
+                            </p>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <FiUser className="text-gray-500" />
+                            <p className="text-sm text-light">
+                              Minimum Person:{" "}
+                              {editingMinimumPerson[slot.time] !== undefined ? (
+                                <div className="inline-flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={editingMinimumPerson[slot.time]}
+                                    onChange={(e) =>
+                                      handleMinimumPersonChange(
+                                        slot.time,
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-20 px-3 py-2 text-sm border rounded-md text-center"
+                                    disabled={isUpdating}
+                                    aria-label={`Minimum person for ${slot.time}`}
+                                  />
+
+                                  <button
+                                    onClick={() =>
+                                      handleMinimumPersonSubmit(
+                                        slot.time,
+                                        slot.minimumPerson
+                                      )
+                                    }
+                                    disabled={isUpdating}
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50"
+                                    title="Save minimum person"
+                                  >
+                                    <FiSave size={14} />
+                                    <span className="hidden sm:inline">
+                                      Save
+                                    </span>
+                                  </button>
+
+                                  <button
+                                    onClick={() =>
+                                      cancelMinimumPersonEdit(slot.time)
+                                    }
+                                    disabled={isUpdating}
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm disabled:opacity-50"
+                                    title="Cancel edit"
+                                  >
+                                    <FiX size={14} />
+                                    <span className="hidden sm:inline">
+                                      Cancel
+                                    </span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-2">
+                                  <span className="font-medium text-sm">
+                                    {slot.minimumPerson}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      handleMinimumPersonChange(
+                                        slot.time,
+                                        slot.minimumPerson.toString()
+                                      )
+                                    }
+                                    disabled={isUpdating}
+                                    className="inline-flex items-center gap-2 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 text-sm disabled:opacity-50"
+                                    title="Edit minimum person"
+                                    aria-label={`Edit minimum person for ${slot.time}`}
+                                  >
+                                    <FiEdit size={14} />
+                                    <span className="hidden sm:inline">
+                                      Edit
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
                             </p>
                           </div>
                         </div>
