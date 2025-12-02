@@ -19,6 +19,7 @@ interface TransferTableData {
   category: string;
   route: string;
   price: string | number; // Allow both for formatted display
+  isAvailable: boolean; // Availability status
   _id: string;
   [key: string]: any; // Index signature for DataTable compatibility
 }
@@ -39,6 +40,18 @@ export default function TransfersPage() {
   });
 
   // Admin booking modal state
+  // Availability change confirmation state
+  const [availabilityConfirmation, setAvailabilityConfirmation] = useState<{
+    isOpen: boolean;
+    transferId: string | null;
+    transferName: string;
+    currentStatus: boolean;
+  }>({
+    isOpen: false,
+    transferId: null,
+    transferName: "",
+    currentStatus: true,
+  });
   const [bookingModal, setBookingModal] = useState<{
     isOpen: boolean;
     transferDetails: TransferType | null;
@@ -71,6 +84,8 @@ export default function TransfersPage() {
           category: transfer.type,
           route: `${transfer.from} → ${transfer.to}`,
           price: `RM ${Math.round(transfer.newPrice).toLocaleString()}`,
+          isAvailable:
+            transfer.isAvailable !== undefined ? transfer.isAvailable : true,
           _id: transfer._id,
         })
       );
@@ -173,11 +188,39 @@ export default function TransfersPage() {
     fetchTransfers();
   };
 
+  // Handle toggle availability
+  const handleToggleAvailability = async (
+    id: string,
+    currentStatus: boolean
+  ) => {
+    try {
+      const newStatus = !currentStatus;
+      await transferApi.toggleTransferAvailability(id, newStatus);
+
+      // Update local state
+      setTransfers(
+        transfers.map((transfer) =>
+          transfer._id === id
+            ? { ...transfer, isAvailable: newStatus }
+            : transfer
+        )
+      );
+
+      toast.success(
+        `Transfer ${newStatus ? "enabled" : "disabled"} successfully`
+      );
+    } catch (error) {
+      console.error("Error toggling availability:", error);
+      toast.error("Failed to toggle transfer availability");
+    }
+  };
+
   const columns = [
     { key: "name", label: "Transfer Name" },
     { key: "category", label: "Category" },
     { key: "route", label: "Route" },
     { key: "price", label: "Price (RM)" },
+    { key: "availability", label: "Status" },
     { key: "actions", label: "Actions" },
   ];
 
@@ -314,6 +357,14 @@ export default function TransfersPage() {
                 onDelete: (row) => {
                   handleDelete(row._id as string);
                 },
+                onToggleAvailability: (row) => {
+                  setAvailabilityConfirmation({
+                    isOpen: true,
+                    transferId: row._id as string,
+                    transferName: row.name as string,
+                    currentStatus: row.isAvailable as boolean,
+                  });
+                },
               }}
             />
           )}
@@ -342,6 +393,48 @@ export default function TransfersPage() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* Availability Confirmation Dialog */}
+      <Confirmation
+        isOpen={availabilityConfirmation.isOpen}
+        onClose={() =>
+          setAvailabilityConfirmation({
+            isOpen: false,
+            transferId: null,
+            transferName: "",
+            currentStatus: true,
+          })
+        }
+        onConfirm={async () => {
+          if (!availabilityConfirmation.transferId) return;
+          await handleToggleAvailability(
+            availabilityConfirmation.transferId,
+            availabilityConfirmation.currentStatus
+          );
+        }}
+        title={
+          availabilityConfirmation.currentStatus
+            ? "Disable Transfer"
+            : "Enable Transfer"
+        }
+        message={
+          <div>
+            <p>
+              Are you sure you want to{" "}
+              {availabilityConfirmation.currentStatus ? "disable" : "enable"}{" "}
+              the transfer:
+            </p>
+            <p className="font-semibold text-primary_green mt-2">
+              "{availabilityConfirmation.transferName}"
+            </p>
+          </div>
+        }
+        confirmText={
+          availabilityConfirmation.currentStatus ? "Disable" : "Enable"
+        }
+        cancelText="Cancel"
+        variant={availabilityConfirmation.currentStatus ? "danger" : "default"}
       />
 
       {/* Admin Booking Modal */}

@@ -18,6 +18,7 @@ export interface TransferType {
     maximumPerson?: number
     times: string[]
     label?: "Recommended" | "Popular" | "Best Value" | "Best seller" | null
+    isAvailable: boolean
     from: string
     to: string
     details: {
@@ -210,6 +211,31 @@ export const transferApi = {
             return await response.json()
         } catch (error) {
             console.error("Error creating transfer:", error)
+            throw error
+        }
+    },
+
+    // Toggle transfer availability
+    toggleTransferAvailability: async (
+        id: string,
+        isAvailable: boolean
+    ): Promise<{ success: boolean; message: string; data: TransferType }> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/transfers/${id}/availability`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ isAvailable }),
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            return await response.json()
+        } catch (error) {
+            console.error("Error toggling transfer availability:", error)
             throw error
         }
     },

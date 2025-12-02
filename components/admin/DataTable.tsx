@@ -15,6 +15,7 @@ type ActionHandlers = {
   onDelete?: (row: DataRow) => void;
   onBook?: (row: DataRow) => void;
   onMore?: (row: DataRow) => void;
+  onToggleAvailability?: (row: DataRow) => void;
 };
 
 export default function DataTable({
@@ -47,6 +48,33 @@ export default function DataTable({
           {data.map((row, rowIndex) => (
             <tr key={rowIndex} className="hover:bg-gray-50">
               {columns.map((column) => {
+                // Handle availability toggle column
+                if (column.key === "availability") {
+                  const isAvailable = row.isAvailable as boolean;
+                  return (
+                    <td
+                      key={column.key}
+                      className="px-4 py-3 whitespace-nowrap"
+                    >
+                      <button
+                        onClick={() =>
+                          actionHandlers?.onToggleAvailability?.(row)
+                        }
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          isAvailable
+                            ? "bg-green-100 text-green-800 hover:bg-green-200"
+                            : "bg-red-100 text-red-800 hover:bg-red-200"
+                        }`}
+                        title={
+                          isAvailable ? "Click to disable" : "Click to enable"
+                        }
+                      >
+                        {isAvailable ? "Active" : "Inactive"}
+                      </button>
+                    </td>
+                  );
+                }
+
                 if (column.key === "actions") {
                   return (
                     <td

@@ -19,6 +19,7 @@ interface TourTableData {
   category: string;
   period: string;
   price: string | number; // Allow both for formatted display
+  isAvailable: boolean; // Availability status
   _id: string;
   [key: string]: any; // Index signature for DataTable compatibility
 }
@@ -39,6 +40,18 @@ export default function ToursPage() {
   });
 
   // Admin booking modal state
+  // Availability change confirmation state
+  const [availabilityConfirmation, setAvailabilityConfirmation] = useState<{
+    isOpen: boolean;
+    tourId: string | null;
+    tourName: string;
+    currentStatus: boolean;
+  }>({
+    isOpen: false,
+    tourId: null,
+    tourName: "",
+    currentStatus: true,
+  });
   const [bookingModal, setBookingModal] = useState<{
     isOpen: boolean;
     tourDetails: TourType | null;
@@ -71,6 +84,29 @@ export default function ToursPage() {
           category: tour.type === "co-tour" ? "Co-Tour" : "Private",
           period: tour.period,
           price: `RM ${Math.round(tour.newPrice).toLocaleString()}`,
+          isAvailable: tour.isAvailable !== undefined ? tour.isAvailable : true,
+          availability: (
+            <button
+              onClick={() =>
+                setAvailabilityConfirmation({
+                  isOpen: true,
+                  tourId: tour._id,
+                  tourName: tour.title,
+                  currentStatus:
+                    tour.isAvailable !== undefined ? tour.isAvailable : true,
+                })
+              }
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                (tour.isAvailable !== undefined ? tour.isAvailable : true)
+                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                  : "bg-red-100 text-red-700 hover:bg-red-200"
+              }`}
+            >
+              {(tour.isAvailable !== undefined ? tour.isAvailable : true)
+                ? "Active"
+                : "Inactive"}
+            </button>
+          ),
           _id: tour._id,
         })
       );
@@ -169,11 +205,35 @@ export default function ToursPage() {
     fetchTours();
   };
 
+  // Handle toggle availability
+  const handleToggleAvailability = async (
+    id: string,
+    currentStatus: boolean
+  ) => {
+    try {
+      const newStatus = !currentStatus;
+      await tourApi.toggleTourAvailability(id, newStatus);
+
+      // Update local state
+      setTours(
+        tours.map((tour) =>
+          tour._id === id ? { ...tour, isAvailable: newStatus } : tour
+        )
+      );
+
+      toast.success(`Tour ${newStatus ? "enabled" : "disabled"} successfully`);
+    } catch (error) {
+      console.error("Error toggling availability:", error);
+      toast.error("Failed to toggle tour availability");
+    }
+  };
+
   const columns = [
     { key: "name", label: "Tour Name" },
     { key: "category", label: "Category" },
     { key: "period", label: "Period" },
     { key: "price", label: "Price (RM)" },
+    { key: "availability", label: "Status" },
     { key: "actions", label: "Actions" },
   ];
 
@@ -308,6 +368,14 @@ export default function ToursPage() {
                 onDelete: (row) => {
                   handleDelete(row._id as string);
                 },
+                onToggleAvailability: (row) => {
+                  setAvailabilityConfirmation({
+                    isOpen: true,
+                    tourId: row._id as string,
+                    tourName: row.name as string,
+                    currentStatus: row.isAvailable as boolean,
+                  });
+                },
               }}
             />
           )}
@@ -336,6 +404,48 @@ export default function ToursPage() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* Availability Confirmation Dialog */}
+      <Confirmation
+        isOpen={availabilityConfirmation.isOpen}
+        onClose={() =>
+          setAvailabilityConfirmation({
+            isOpen: false,
+            tourId: null,
+            tourName: "",
+            currentStatus: true,
+          })
+        }
+        onConfirm={async () => {
+          if (!availabilityConfirmation.tourId) return;
+          await handleToggleAvailability(
+            availabilityConfirmation.tourId,
+            availabilityConfirmation.currentStatus
+          );
+        }}
+        title={
+          availabilityConfirmation.currentStatus
+            ? "Disable Tour"
+            : "Enable Tour"
+        }
+        message={
+          <div>
+            <p>
+              Are you sure you want to{" "}
+              {availabilityConfirmation.currentStatus ? "disable" : "enable"}{" "}
+              the tour:
+            </p>
+            <p className="font-semibold text-primary_green mt-2">
+              "{availabilityConfirmation.tourName}"
+            </p>
+          </div>
+        }
+        confirmText={
+          availabilityConfirmation.currentStatus ? "Disable" : "Enable"
+        }
+        cancelText="Cancel"
+        variant={availabilityConfirmation.currentStatus ? "danger" : "default"}
       />
 
       {/* Admin Booking Modal */}

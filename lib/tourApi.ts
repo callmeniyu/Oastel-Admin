@@ -18,6 +18,7 @@ export interface TourType {
     maximumPerson?: number
     departureTimes: string[]
     label?: "Recommended" | "Popular" | "Best Value" | "Best seller" | null
+    isAvailable: boolean
     details: {
         about: string
         itinerary: string
@@ -162,6 +163,31 @@ export const tourApi = {
             return await response.json()
         } catch (error) {
             console.error("Error updating tour:", error)
+            throw error
+        }
+    },
+
+    // Toggle tour availability
+    toggleTourAvailability: async (
+        id: string,
+        isAvailable: boolean
+    ): Promise<{ success: boolean; message: string; data: TourType }> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/tours/${id}/availability`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ isAvailable }),
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            return await response.json()
+        } catch (error) {
+            console.error("Error toggling tour availability:", error)
             throw error
         }
     },

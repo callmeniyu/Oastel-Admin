@@ -55,8 +55,7 @@ export default function Confirmation({
       default:
         return {
           titleColor: "text-gray-900",
-          confirmButton:
-            "bg-primary_green text-white hover:bg-primary_green/90",
+          confirmButton: "bg-blue-600 text-white hover:bg-blue-700",
         };
     }
   };
