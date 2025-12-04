@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
         const packageId = searchParams.get('packageId');
         const time = searchParams.get('time');
         const beforeDate = searchParams.get('beforeDate');
+        const startDate = searchParams.get('startDate');
+        const endDate = searchParams.get('endDate');
         
         let url = `${process.env.NEXT_PUBLIC_API_URL}/api/bookings?`;
         if (packageType) url += `packageType=${packageType}&`;
@@ -17,6 +19,8 @@ export async function GET(request: NextRequest) {
         if (packageId) url += `packageId=${packageId}&`;
         if (time) url += `time=${time}&`;
         if (beforeDate) url += `beforeDate=${beforeDate}&`;
+        if (startDate) url += `startDate=${startDate}&`;
+        if (endDate) url += `endDate=${endDate}&`;
 
         const response = await fetch(url, {
             method: 'GET',

@@ -58,6 +58,11 @@ export default function BookingsPage() {
     return () => clearInterval(autoRefreshInterval);
   }, []);
 
+  // Refetch bookings when navigating months (currentDate changes)
+  useEffect(() => {
+    fetchRealBookings();
+  }, [currentDate]);
+
   useEffect(() => {
     fetchRealBookings();
   }, [selectedDate]);
@@ -108,8 +113,21 @@ export default function BookingsPage() {
   const fetchRealBookings = async () => {
     try {
       setIsLoadingBookings(true);
-      // Fetch all bookings regardless of activeTab to get proper counts
-      const res = await fetch(`/api/bookings`);
+
+      // Optimize: Only fetch bookings within a date range (current month ±15 days)
+      // This significantly reduces data transfer and processing
+      const startDate = new Date(currentDate);
+      startDate.setDate(startDate.getDate() - 15); // 15 days before
+      const endDate = new Date(currentDate);
+      endDate.setDate(endDate.getDate() + 45); // 45 days after (covers next month)
+
+      const startDateStr = formatDate(startDate);
+      const endDateStr = formatDate(endDate);
+
+      // Fetch bookings within the date range
+      const res = await fetch(
+        `/api/bookings?startDate=${startDateStr}&endDate=${endDateStr}`
+      );
       const data = await res.json();
       if (data.success) {
         setRealBookings(data.bookings || data.data || []);

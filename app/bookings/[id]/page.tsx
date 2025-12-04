@@ -75,16 +75,25 @@ export default function PackageDetailsPage() {
 
   useEffect(() => {
     if (packageId && date && time) {
-      fetchPackageCustomers();
-      fetchPackageDetails();
-      fetchTimeSlots();
+      // Fetch all data in parallel for faster loading
+      Promise.all([
+        fetchPackageCustomers(),
+        fetchPackageDetails(),
+        fetchTimeSlots(),
+      ]).catch((err) => {
+        console.error("Error loading page data:", err);
+      });
     }
   }, [packageId, date, time]);
 
   const fetchPackageCustomers = async () => {
     try {
       const response = await fetch(
-        `/api/bookings?packageId=${packageId}&date=${date}&time=${time}`
+        `/api/bookings?packageId=${packageId}&date=${date}&time=${time}`,
+        {
+          // Add cache control for better performance
+          next: { revalidate: 10 }, // Revalidate every 10 seconds
+        }
       );
 
       if (!response.ok) {
@@ -101,7 +110,10 @@ export default function PackageDetailsPage() {
   const fetchPackageDetails = async () => {
     try {
       const endpoint = type === "tour" ? "/api/tours" : "/api/transfers";
-      const response = await fetch(`${endpoint}/${packageId}`);
+      const response = await fetch(`${endpoint}/${packageId}`, {
+        // Package details rarely change, cache for longer
+        next: { revalidate: 60 },
+      });
 
       if (!response.ok) {
         throw new Error("Failed to fetch package details");
