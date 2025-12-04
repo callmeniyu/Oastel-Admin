@@ -355,11 +355,13 @@ export default function PackageDetailsPage() {
   ) => {
     try {
       const d = dateStr ? new Date(dateStr) : null;
+      // Use Malaysia timezone consistently to match how dates are stored
       const datePart = d
-        ? d.toLocaleDateString(undefined, {
+        ? d.toLocaleDateString("en-US", {
             year: "numeric",
             month: "short",
             day: "numeric",
+            timeZone: "Asia/Kuala_Lumpur", // Force Malaysia timezone
           })
         : "";
 
@@ -423,6 +425,7 @@ export default function PackageDetailsPage() {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
+                timeZone: "Asia/Kuala_Lumpur", // Force Malaysia timezone
               })}{" "}
               at {time}
             </p>
