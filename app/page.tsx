@@ -17,6 +17,15 @@ interface Booking {
   time?: string;
   status?: string;
   total?: number;
+  contactInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+  };
+  adults?: number;
+  children?: number;
+  pickupLocation?: string;
 }
 
 interface BookingsApiResponse {
@@ -35,11 +44,19 @@ interface Transfer {
 
 interface SortedBooking {
   id?: string;
-  tour?: string;
-  transfer?: string | null;
+  packageTitle?: string;
+  packageType?: string;
   date: string;
   time: string;
   status: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  adults?: number;
+  children?: number;
+  pickupLocation?: string;
+  total?: number;
+  createdAt?: string;
 }
 
 export default function DashboardPage() {
@@ -175,11 +192,9 @@ export default function DashboardPage() {
           .map(
             (booking: Booking): SortedBooking => ({
               id: booking._id || booking.id,
-              tour: booking.packageId?.title || booking.title,
-              transfer:
-                booking.packageType === "transfer"
-                  ? booking.packageId?.title || booking.title
-                  : null,
+              packageTitle:
+                booking.packageId?.title || booking.title || "Unknown Package",
+              packageType: booking.packageType,
               date: booking.date
                 ? new Date(booking.date).toLocaleDateString("en-GB", {
                     day: "2-digit",
@@ -189,6 +204,14 @@ export default function DashboardPage() {
                 : "N/A",
               time: booking.time || "N/A",
               status: booking.status || "Confirmed",
+              customerName: booking.contactInfo?.name || "N/A",
+              customerEmail: booking.contactInfo?.email || "N/A",
+              customerPhone: booking.contactInfo?.phone || "N/A",
+              adults: booking.adults || 0,
+              children: booking.children || 0,
+              pickupLocation: booking.pickupLocation || "N/A",
+              total: booking.total || 0,
+              createdAt: booking.createdAt,
             })
           );
 
@@ -264,31 +287,9 @@ export default function DashboardPage() {
                 Loading recent bookings...
               </div>
             ) : recentBookings.length > 0 ? (
-              recentBookings.map((booking, index) => {
-                // Convert booking to package format for the PackageCard
-                const pkg = {
-                  id: booking.id || "",
-                  title: booking.tour || booking.transfer || "Unknown Package",
-                  type: booking.transfer
-                    ? ("transfer" as const)
-                    : ("tour" as const),
-                  duration: "half-day", // Default value
-                  currentBookings: 1,
-                  maxSlots: 10,
-                  startTime: booking.time || "N/A",
-                  price: "Booked",
-                  status: booking.status || "Confirmed",
-                };
-
-                return (
-                  <PackageCard
-                    key={index}
-                    package={pkg}
-                    bookingDate={booking.date || ""}
-                    status={booking.status || "Confirmed"}
-                  />
-                );
-              })
+              recentBookings.map((booking, index) => (
+                <BookingUserCard key={index} booking={booking} />
+              ))
             ) : (
               <div className="text-center py-4 text-gray-500">
                 No recent bookings found
@@ -337,85 +338,109 @@ export default function DashboardPage() {
   );
 }
 
-// Simple version of PackageCard for dashboard
-function PackageCard({
-  package: pkg,
-  bookingDate,
-  status,
-}: {
-  package: {
-    id: string;
-    title: string;
-    type: "tour" | "transfer";
-    startTime: string;
-    price: string;
-    currentBookings: number;
-    maxSlots: number;
-    duration?: string;
-    status?: string;
-  };
-  bookingDate: string;
-  status: string;
-}) {
+// User booking card for dashboard
+function BookingUserCard({ booking }: { booking: SortedBooking }) {
   const router = useRouter();
 
-  const handlePackageClick = () => {
-    router.push(`/bookings`);
+  const handleCardClick = () => {
+    router.push(`/bookings?id=${booking.id}`);
   };
 
   const getStatusColor = () => {
-    if (status.toLowerCase() === "cancelled") return "bg-red-100 text-red-700";
-    if (status.toLowerCase() === "pending")
+    if (booking.status.toLowerCase() === "cancelled")
+      return "bg-red-100 text-red-700";
+    if (booking.status.toLowerCase() === "pending")
       return "bg-yellow-100 text-yellow-700";
+    if (booking.status.toLowerCase() === "completed")
+      return "bg-blue-100 text-blue-700";
     return "bg-green-100 text-green-700";
   };
+
+  const totalGuests = (booking.adults || 0) + (booking.children || 0);
 
   return (
     <div
       className="p-4 rounded-lg border border-gray-200 bg-white cursor-pointer hover:shadow-md transition-shadow"
-      onClick={handlePackageClick}
+      onClick={handleCardClick}
     >
+      {/* Header with Customer Name and Status */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-dark">{pkg.title}</h3>
-            {pkg.duration && (
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  pkg.duration === "full-day"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-purple-100 text-purple-800"
-                }`}
-              >
-                {pkg.duration === "full-day" ? "Full Day" : "Half Day"}
-              </span>
-            )}
+            <h3 className="font-semibold text-dark text-lg">
+              {booking.customerName}
+            </h3>
           </div>
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <div className="flex items-center gap-1">
-              <FiClock className="text-xs" />
-              <span>{pkg.startTime}</span>
-            </div>
-            <div className="text-xs text-gray-500">{bookingDate}</div>
-          </div>
+          <div className="text-sm text-gray-500">{booking.customerEmail}</div>
+          <div className="text-sm text-gray-500">{booking.customerPhone}</div>
         </div>
         <div
           className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor()}`}
         >
-          {status}
+          {booking.status}
         </div>
       </div>
 
-      {/* Package Type */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <FiUsers className="text-gray-500" />
-          <span className="text-sm text-gray-500">Type:</span>
-          <span className="text-sm font-medium">
-            {pkg.type === "tour" ? "Tour" : "Transfer"}
+      {/* Package Info */}
+      <div className="bg-gray-50 p-3 rounded-md mb-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">
+              {booking.packageType === "tour" ? "🚗" : "🚐"}
+            </span>
+            <span className="font-medium text-dark">
+              {booking.packageTitle}
+            </span>
+          </div>
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              booking.packageType === "tour"
+                ? "bg-blue-100 text-blue-800"
+                : "bg-purple-100 text-purple-800"
+            }`}
+          >
+            {booking.packageType === "tour" ? "Tour" : "Transfer"}
           </span>
         </div>
+
+        {/* Date, Time, Guests */}
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex items-center gap-1">
+            <FiClock className="text-gray-500" />
+            <span className="text-gray-600">{booking.date}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-600">⏰ {booking.time}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <FiUsers className="text-gray-500" />
+            <span className="text-gray-600">
+              {totalGuests} guest{totalGuests !== 1 ? "s" : ""}
+              {booking.adults && booking.adults > 0 && ` (${booking.adults}A`}
+              {booking.children &&
+                booking.children > 0 &&
+                `, ${booking.children}C)`}
+              {booking.adults &&
+                booking.adults > 0 &&
+                booking.children === 0 &&
+                ")"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-600">
+              💰 RM {booking.total?.toFixed(2)}
+            </span>
+          </div>
+        </div>
       </div>
+
+      {/* Pickup Location */}
+      {booking.pickupLocation && booking.pickupLocation !== "N/A" && (
+        <div className="text-sm text-gray-600">
+          <span className="font-medium">📍 Pickup:</span>{" "}
+          {booking.pickupLocation}
+        </div>
+      )}
     </div>
   );
 }
