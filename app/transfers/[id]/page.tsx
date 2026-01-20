@@ -53,6 +53,8 @@ const transferSchema = z
     to: z.string().min(2, "To location is required"),
     duration: z.string().min(1, "Duration is required"),
     bookedCount: z.number().min(0),
+    reviewCount: z.number().min(0),
+    rating: z.number().min(0).max(5),
     oldPrice: z.number().min(0, "Old price must be 0 or greater"),
     newPrice: z.number().min(0, "New price must be 0 or greater"),
     childPrice: z
@@ -321,6 +323,8 @@ export default function EditTransferPage({
 
   const defaultValues = {
     bookedCount: 0,
+    reviewCount: 0,
+    rating: 5,
     type: "Van" as const,
     vehicle: "", // Vehicle name for private transfers
     label: "None" as const,
@@ -575,6 +579,8 @@ export default function EditTransferPage({
             to: transfer.to || "",
             duration: transfer.duration || "",
             bookedCount: transfer.bookedCount || 0,
+            reviewCount: transfer.reviewCount || 0,
+            rating: transfer.rating || 5,
             oldPrice: transfer.oldPrice || 0,
             newPrice: transfer.newPrice || 0,
             childPrice: transfer.childPrice || 0,
@@ -1685,8 +1691,56 @@ export default function EditTransferPage({
                       </div>
                       <p className="text-xs text-red-500 mt-1">
                         {errors.bookedCount?.message}
-                      </p>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Review Count
+                    </label>
+                    <div className="relative">
+                      <input
+                        {...register("reviewCount", { valueAsNumber: true })}
+                        type="number"
+                        min="0"
+                        step="1"
+                        className={`w-full px-3 py-2 border rounded-md ${
+                          errors.reviewCount
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }`}
+                        placeholder="0"
+                      />
+                      <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                     </div>
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors.reviewCount?.message}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Rating (0-5)
+                    </label>
+                    <div className="relative">
+                      <input
+                        {...register("rating", { valueAsNumber: true })}
+                        type="number"
+                        min="0"
+                        max="5"
+                        step="0.1"
+                        className={`w-full px-3 py-2 border rounded-md ${
+                          errors.rating
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }`}
+                        placeholder="5.0"
+                      />
+                    </div>
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors.rating?.message}
+                    </p>
+                  </div>
                   </div>
                 </CollapsibleSection>
 

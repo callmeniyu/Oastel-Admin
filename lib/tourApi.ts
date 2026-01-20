@@ -11,6 +11,8 @@ export interface TourType {
     period: "Half-Day" | "Full-Day"
     status: "active" | "sold"
     bookedCount: number
+    reviewCount: number
+    rating: number
     oldPrice: number
     newPrice: number
     childPrice: number

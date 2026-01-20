@@ -11,6 +11,8 @@ export interface TransferType {
     duration: string
     status: "active" | "sold"
     bookedCount: number
+    reviewCount: number
+    rating: number
     oldPrice: number
     newPrice: number
     childPrice: number
