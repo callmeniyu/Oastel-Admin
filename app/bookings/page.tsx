@@ -11,6 +11,19 @@ import {
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import StatusToggle from "@/components/admin/StatusToggle";
+import {
+  formatDateAsMYT,
+  parseDateStringAsMYT,
+  createMalaysianDate,
+  isSameMalaysianDate,
+  getMalaysianDateComponents,
+  getMalaysianNow,
+  addDaysMYT,
+  getDaysInMonthMYT,
+  getDayOfWeekMYT,
+  parseFlexibleDate,
+  formatMalaysianDateForDisplay,
+} from "@/lib/dateUtils";
 
 type Package = {
   id: string;
@@ -27,7 +40,7 @@ type Package = {
 };
 
 export default function BookingsPage() {
-  const today = new Date();
+  const today = getMalaysianNow();
   const [currentDate, setCurrentDate] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
   const [activeTab, setActiveTab] = useState<"tours" | "transfers">("tours");
@@ -116,17 +129,15 @@ export default function BookingsPage() {
 
       // Optimize: Only fetch bookings within a date range (current month ±15 days)
       // This significantly reduces data transfer and processing
-      const startDate = new Date(currentDate);
-      startDate.setDate(startDate.getDate() - 15); // 15 days before
-      const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 45); // 45 days after (covers next month)
+      const startDate = addDaysMYT(currentDate, -15);
+      const endDate = addDaysMYT(currentDate, 45);
 
-      const startDateStr = formatDate(startDate);
-      const endDateStr = formatDate(endDate);
+      const startDateStr = formatDateAsMYT(startDate);
+      const endDateStr = formatDateAsMYT(endDate);
 
       // Fetch bookings within the date range
       const res = await fetch(
-        `/api/bookings?startDate=${startDateStr}&endDate=${endDateStr}`
+        `/api/bookings?startDate=${startDateStr}&endDate=${endDateStr}`,
       );
       const data = await res.json();
       if (data.success) {
@@ -150,7 +161,7 @@ export default function BookingsPage() {
     packageType: "tour" | "transfer",
     date: string,
     time: string,
-    currentStatus: "active" | "sold"
+    currentStatus: "active" | "sold",
   ) => {
     try {
       const newStatus = currentStatus === "active" ? false : true; // isAvailable boolean
@@ -167,7 +178,7 @@ export default function BookingsPage() {
             time,
             isAvailable: newStatus,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -185,34 +196,23 @@ export default function BookingsPage() {
   // Process real bookings data into Package format
   const processBookingsIntoPackages = (
     bookings: any[],
-    date: Date
+    date: Date,
   ): Package[] => {
-    const dateStr = formatDate(date);
+    const dateStr = formatDateAsMYT(date);
     const safeBookings = Array.isArray(bookings) ? bookings : [];
 
-    // Helper: normalize booking.date into local YYYY-MM-DD string
-    function bookingDateToLocalYYYYMMDD(dateInput: any): string {
+    // Helper: normalize booking.date into Malaysian YYYY-MM-DD string
+    function bookingDateToMalaysianYYYYMMDD(dateInput: any): string {
       try {
         if (!dateInput) return "";
-        if (dateInput instanceof Date) {
-          return formatDate(dateInput);
-        }
-        if (
-          typeof dateInput === "string" &&
-          /^\d{4}-\d{2}-\d{2}$/.test(dateInput)
-        ) {
-          return dateInput;
-        }
-        if (typeof dateInput === "string") {
-          const isoLike = /^\d{4}-\d{2}-\d{2}$/.test(dateInput);
-          const parsed = new Date(
-            isoLike ? dateInput + "T12:00:00" : dateInput
-          );
-          if (isNaN(parsed.getTime())) return "";
-          return formatDate(parsed);
-        }
-        return "";
+
+        // Use the centralized date utility for flexible parsing
+        const parsed = parseFlexibleDate(dateInput);
+        if (!parsed) return "";
+
+        return formatDateAsMYT(parsed);
       } catch (err) {
+        console.error("Error parsing booking date:", dateInput, err);
         return "";
       }
     }
@@ -220,7 +220,7 @@ export default function BookingsPage() {
     // Filter bookings for the selected date
     const dateBookings = safeBookings.filter((booking) => {
       if (!booking || !booking.date) return false;
-      const bookingDateStr = bookingDateToLocalYYYYMMDD(booking.date);
+      const bookingDateStr = bookingDateToMalaysianYYYYMMDD(booking.date);
       return bookingDateStr === dateStr;
     });
 
@@ -274,7 +274,7 @@ export default function BookingsPage() {
     // Merge with all available packages for the selected tab
     const availablePackages = Array.isArray(packages)
       ? packages.filter(
-          (pkg) => pkg && pkg.packageType === activeTab.slice(0, -1)
+          (pkg) => pkg && pkg.packageType === activeTab.slice(0, -1),
         )
       : [];
 
@@ -283,13 +283,13 @@ export default function BookingsPage() {
     availablePackages.forEach((pkg) => {
       // Find all bookings for this package
       const matchingBookings = dateBookings.filter(
-        (b) => b.packageId?._id === pkg._id
+        (b) => b.packageId?._id === pkg._id,
       );
       // If there are bookings, use their time slots
       if (matchingBookings.length > 0) {
         // For each time slot with bookings, use the bookingMap entry
         const timeSlots = Array.from(
-          new Set(matchingBookings.map((b) => b.time))
+          new Set(matchingBookings.map((b) => b.time)),
         );
         timeSlots.forEach((time) => {
           const key = `${pkg._id}-${time}`;
@@ -333,40 +333,32 @@ export default function BookingsPage() {
 
   const selectedDatePackages = processBookingsIntoPackages(
     realBookings,
-    selectedDate
+    selectedDate,
   );
 
   // Compute tour and transfer counts for the selected date independent of the active tab
-  function bookingDateToLocalYYYYMMDD(dateInput: any): string {
+  function bookingDateToMalaysianYYYYMMDD(dateInput: any): string {
     try {
       if (!dateInput) return "";
-      if (dateInput instanceof Date) return formatDate(dateInput);
-      if (
-        typeof dateInput === "string" &&
-        /^\d{4}-\d{2}-\d{2}$/.test(dateInput)
-      ) {
-        return dateInput;
-      }
-      if (typeof dateInput === "string") {
-        const isoLike = /^\d{4}-\d{2}-\d{2}$/.test(dateInput);
-        const parsed = new Date(isoLike ? dateInput + "T12:00:00" : dateInput);
-        if (isNaN(parsed.getTime())) return "";
-        return formatDate(parsed);
-      }
-      return "";
+
+      const parsed = parseFlexibleDate(dateInput);
+      if (!parsed) return "";
+
+      return formatDateAsMYT(parsed);
     } catch (err) {
+      console.error("Error parsing booking date:", dateInput, err);
       return "";
     }
   }
 
   const { tourCount, transferCount } = (function computeCounts() {
-    const dateStr = formatDate(selectedDate);
+    const dateStr = formatDateAsMYT(selectedDate);
     const safeBookings = Array.isArray(realBookings) ? realBookings : [];
     let tCount = 0;
     let trCount = 0;
     for (const booking of safeBookings) {
       if (!booking) continue;
-      const bDateStr = bookingDateToLocalYYYYMMDD(booking.date);
+      const bDateStr = bookingDateToMalaysianYYYYMMDD(booking.date);
       if (bDateStr !== dateStr) continue;
       const increment = booking.isVehicleBooking
         ? 1
@@ -397,68 +389,60 @@ export default function BookingsPage() {
   // Calculate counts for both tours and transfers from all bookings (always for selectedDate)
   const allPackagesForSelectedDate = processBookingsIntoPackages(
     realBookings,
-    selectedDate
+    selectedDate,
   );
   const tours = allPackagesForSelectedDate.filter((p) => p.type === "tour");
   const transfers = allPackagesForSelectedDate.filter(
-    (p) => p.type === "transfer"
+    (p) => p.type === "transfer",
   );
 
-  // Generate days for the current month view
-  const daysInMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-    0
-  ).getDate();
-  const firstDayOfMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    1
-  ).getDay();
+  // Generate days for the current month view using Malaysian timezone
+  const { year: currentYear, month: currentMonth } =
+    getMalaysianDateComponents(currentDate);
+  const daysInMonth = getDaysInMonthMYT(currentDate);
+  const firstDayOfMonth = createMalaysianDate(currentYear, currentMonth, 1);
+  const firstDayOfWeek = getDayOfWeekMYT(firstDayOfMonth);
 
   const navigateMonth = (direction: "prev" | "next") => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(
-      direction === "prev"
-        ? currentDate.getMonth() - 1
-        : currentDate.getMonth() + 1
-    );
-    setCurrentDate(newDate);
+    const { year, month } = getMalaysianDateComponents(currentDate);
+    const newMonth = direction === "prev" ? month - 1 : month + 1;
+    let newYear = year;
+    let adjustedMonth = newMonth;
+
+    if (newMonth < 1) {
+      adjustedMonth = 12;
+      newYear = year - 1;
+    } else if (newMonth > 12) {
+      adjustedMonth = 1;
+      newYear = year + 1;
+    }
+
+    setCurrentDate(createMalaysianDate(newYear, adjustedMonth, 1));
   };
 
   const handleDateClick = (day: number) => {
-    const clickedDate = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      day
-    );
+    const { year, month } = getMalaysianDateComponents(currentDate);
+    const clickedDate = createMalaysianDate(year, month, day);
     // Admin can select any date (past or future)
     setSelectedDate(clickedDate);
   };
 
-  // Helper functions
+  // Helper functions - now using centralized utilities
   function formatDate(date: Date): string {
-    // Fix timezone offset issues by using local date components
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return formatDateAsMYT(date);
   }
 
   function formatDateFromString(dateString: string): string {
-    // Handle date strings more safely to prevent offset issues
-    const date = new Date(dateString + "T12:00:00"); // Add noon time to prevent timezone shifts
-    return formatDate(date);
+    const date = parseDateStringAsMYT(dateString);
+    return formatDateAsMYT(date);
   }
 
   function getNextDay(date: Date, days = 1): Date {
-    const newDate = new Date(date);
-    newDate.setDate(newDate.getDate() + days);
-    return newDate;
+    return addDaysMYT(date, days);
   }
 
   function isSameDay(date1: Date, date2: Date): boolean {
-    return formatDate(date1) === formatDate(date2);
+    return isSameMalaysianDate(date1, date2);
   }
 
   function isBeforeToday(date: Date): boolean {
@@ -467,33 +451,18 @@ export default function BookingsPage() {
   }
 
   function renderDay(day: number) {
-    const date = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      day
-    );
+    const { year, month } = getMalaysianDateComponents(currentDate);
+    const date = createMalaysianDate(year, month, day);
+
     // Only show dot if there are actual bookings for this date
-    const dateStr = formatDate(date);
+    const dateStr = formatDateAsMYT(date);
     const hasBookings =
       Array.isArray(realBookings) &&
       realBookings.some((booking) => {
         if (!booking || !booking.date) return false;
-        const bookingDateStr = (function (d: any) {
-          try {
-            if (!d) return "";
-            if (d instanceof Date) return formatDate(d);
-            if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))
-              return d;
-            const parsed = new Date(
-              /^\d{4}-\d{2}-\d{2}$/.test(d) ? d + "T12:00:00" : d
-            );
-            if (isNaN(parsed.getTime())) return "";
-            return formatDate(parsed);
-          } catch {
-            return "";
-          }
-        })(booking.date);
-        return bookingDateStr === dateStr;
+        const parsed = parseFlexibleDate(booking.date);
+        if (!parsed) return false;
+        return formatDateAsMYT(parsed) === dateStr;
       });
     const isSelected = isSameDay(date, selectedDate);
     const isDisabled = false; // Admin can select any day
@@ -507,8 +476,8 @@ export default function BookingsPage() {
           isSelected
             ? "bg-primary/10 border-primary"
             : hasBookings
-            ? "bg-primary/5 border-gray-100"
-            : "border-gray-100"
+              ? "bg-primary/5 border-gray-100"
+              : "border-gray-100"
         } ${isSameDay(date, today) ? "border-2 border-primary" : ""}`}
       >
         <div className="text-right text-sm mb-1">{day}</div>
@@ -557,7 +526,7 @@ export default function BookingsPage() {
               <FiChevronLeft className="text-xl" />
             </button>
             <h2 className="text-lg font-semibold">
-              {currentDate.toLocaleDateString("en-US", {
+              {formatMalaysianDateForDisplay(currentDate, {
                 month: "long",
                 year: "numeric",
               })}
@@ -585,13 +554,13 @@ export default function BookingsPage() {
           {/* Calendar days */}
           <div className="grid grid-cols-7 gap-1">
             {/* Empty cells for days before the 1st */}
-            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
               <div key={`empty-${i}`} className="min-h-16"></div>
             ))}
 
             {/* Days of the month */}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
-              renderDay
+              renderDay,
             )}
           </div>
         </div>
@@ -602,7 +571,7 @@ export default function BookingsPage() {
             <h2 className="text-lg font-semibold">
               {isSameDay(selectedDate, today)
                 ? "Today's Packages"
-                : selectedDate.toLocaleDateString("en-US", {
+                : formatMalaysianDateForDisplay(selectedDate, {
                     weekday: "long",
                     month: "short",
                     day: "numeric",
@@ -739,7 +708,7 @@ function PackageCard({
     packageType: "tour" | "transfer",
     date: string,
     time: string,
-    currentStatus: "active" | "sold"
+    currentStatus: "active" | "sold",
   ) => Promise<void>;
   isLoadingBookings: boolean;
   vehicles: any[];
@@ -777,7 +746,7 @@ function PackageCard({
   const handlePackageClick = () => {
     const dateStr = formatDate(selectedDate);
     router.push(
-      `/bookings/${pkg.id}?date=${dateStr}&time=${pkg.startTime}&type=${pkg.type}`
+      `/bookings/${pkg.id}?date=${dateStr}&time=${pkg.startTime}&type=${pkg.type}`,
     );
   };
 
@@ -877,8 +846,8 @@ function PackageCard({
                 (pkg.currentBookings / availability.total) * 100 >= 90
                   ? "bg-red-500"
                   : (pkg.currentBookings / availability.total) * 100 >= 70
-                  ? "bg-yellow-500"
-                  : "bg-green-500"
+                    ? "bg-yellow-500"
+                    : "bg-green-500"
               }`}
               style={{
                 width: `${(pkg.currentBookings / availability.total) * 100}%`,
