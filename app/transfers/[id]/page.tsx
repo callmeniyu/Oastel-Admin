@@ -37,7 +37,7 @@ const transferSchema = z
       .string()
       .regex(
         /^[a-z0-9-]*$/,
-        "Slug can only contain lowercase letters, numbers and hyphens"
+        "Slug can only contain lowercase letters, numbers and hyphens",
       )
       .optional()
       .or(z.literal("")),
@@ -85,13 +85,13 @@ const transferSchema = z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 100,
-          "About section must be at least 100 characters"
+          "About section must be at least 100 characters",
         ),
       itinerary: z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 100,
-          "Itinerary must be at least 100 characters"
+          "Itinerary must be at least 100 characters",
         ),
       pickupOption: z.enum(["admin", "user"]),
       pickupLocation: z.string().optional(), // Make optional, validate conditionally
@@ -101,13 +101,13 @@ const transferSchema = z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 10,
-          "Note must be at least 10 characters"
+          "Note must be at least 10 characters",
         ),
       faq: z.array(
         z.object({
           question: z.string().min(1, "Question is required"),
           answer: z.string().min(1, "Answer is required"),
-        })
+        }),
       ),
     }),
   })
@@ -121,7 +121,7 @@ const transferSchema = z
     {
       message: "New price must be less than or equal to old price",
       path: ["newPrice"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -139,7 +139,7 @@ const transferSchema = z
       message:
         "Child price, minimum persons, and maximum persons are required for non-Private transfers",
       path: ["type"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -157,7 +157,7 @@ const transferSchema = z
     {
       message: "Maximum persons must be greater than minimum persons",
       path: ["maximumPerson"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -169,7 +169,7 @@ const transferSchema = z
     {
       message: "From and To locations must be different",
       path: ["to"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -185,7 +185,7 @@ const transferSchema = z
     {
       message: "Pickup location must be at least 10 characters",
       path: ["details.pickupLocation"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -201,7 +201,7 @@ const transferSchema = z
     {
       message: "Pickup guidelines must be at least 10 characters",
       path: ["details.pickupGuidelines"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -214,7 +214,7 @@ const transferSchema = z
     {
       message: "Vehicle name is required for private transfers",
       path: ["vehicle"],
-    }
+    },
   );
 
 type TransferFormData = z.infer<typeof transferSchema>;
@@ -354,7 +354,7 @@ export default function EditTransferPage({
     const fetchVehicles = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`,
         );
         const data = await res.json();
         if (data.success) setVehicles(data.data || []);
@@ -379,7 +379,7 @@ export default function EditTransferPage({
             units: vehicleUnits,
             seats: vehicleSeats,
           }),
-        }
+        },
       );
       const data = await res.json();
       if (data.success) {
@@ -728,7 +728,7 @@ export default function EditTransferPage({
 
   // Handle image upload
   const handleImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -771,7 +771,7 @@ export default function EditTransferPage({
         error.message || "Failed to upload image. Please try again. ❌",
         {
           duration: 4000,
-        }
+        },
       );
       // Clear preview on error
       setImagePreview("");
@@ -833,7 +833,7 @@ export default function EditTransferPage({
 
       // All validation already done in handleSaveTransfer
       const validFaqs = data.details.faq.filter(
-        (faq) => faq.question.trim() && faq.answer.trim()
+        (faq) => faq.question.trim() && faq.answer.trim(),
       );
 
       // Prepare transfer data for API
@@ -901,7 +901,7 @@ export default function EditTransferPage({
       // Call the API to update the transfer
       const response = await transferApi.updateTransfer(
         transferId,
-        finalTransferData
+        finalTransferData,
       );
 
       console.log("Transfer updated successfully"); // Debug log
@@ -919,7 +919,7 @@ export default function EditTransferPage({
           : "Failed to update transfer. Please try again. ❌",
         {
           duration: 4000,
-        }
+        },
       );
     } finally {
       setIsSubmitting(false);
@@ -935,7 +935,7 @@ export default function EditTransferPage({
     if (isFormValid) {
       const currentData = getValues();
       const validFaqs = currentData.details.faq.filter(
-        (faq) => faq.question.trim() && faq.answer.trim()
+        (faq) => faq.question.trim() && faq.answer.trim(),
       );
       if (validFaqs.length === 0) {
         setValidationSuccess(false);
@@ -1351,7 +1351,7 @@ export default function EditTransferPage({
                                 onChange={(e) => {
                                   field.onChange(e);
                                   const v = vehicles.find(
-                                    (x) => x.name === e.target.value
+                                    (x) => x.name === e.target.value,
                                   );
                                   if (v) {
                                     setValue("seatCapacity", Number(v.seats));
@@ -1420,7 +1420,7 @@ export default function EditTransferPage({
                                       aria-label="decrease units"
                                       onClick={() =>
                                         setVehicleUnits(
-                                          Math.max(1, vehicleUnits - 1)
+                                          Math.max(1, vehicleUnits - 1),
                                         )
                                       }
                                       className="px-3 py-1 border rounded-md"
@@ -1434,8 +1434,8 @@ export default function EditTransferPage({
                                         setVehicleUnits(
                                           Math.max(
                                             1,
-                                            Number(e.target.value || 1)
-                                          )
+                                            Number(e.target.value || 1),
+                                          ),
                                         )
                                       }
                                       min={1}
@@ -1464,7 +1464,7 @@ export default function EditTransferPage({
                                       aria-label="decrease seats"
                                       onClick={() =>
                                         setVehicleSeats(
-                                          Math.max(1, vehicleSeats - 1)
+                                          Math.max(1, vehicleSeats - 1),
                                         )
                                       }
                                       className="px-3 py-1 border rounded-md"
@@ -1478,8 +1478,8 @@ export default function EditTransferPage({
                                         setVehicleSeats(
                                           Math.max(
                                             1,
-                                            Number(e.target.value || 1)
-                                          )
+                                            Number(e.target.value || 1),
+                                          ),
                                         )
                                       }
                                       min={1}
@@ -1691,9 +1691,10 @@ export default function EditTransferPage({
                       </div>
                       <p className="text-xs text-red-500 mt-1">
                         {errors.bookedCount?.message}
-                    </p>
-                  </div>
+                      </p>
+                    </div>
 
+                    {/* Review Count and Rating fields removed - not needed
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Review Count
@@ -1741,6 +1742,7 @@ export default function EditTransferPage({
                       {errors.rating?.message}
                     </p>
                   </div>
+                  */}
                   </div>
                 </CollapsibleSection>
 

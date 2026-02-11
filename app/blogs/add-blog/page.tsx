@@ -33,7 +33,7 @@ const blogSchema = z.object({
     .string()
     .regex(
       /^[a-z0-9-]*$/,
-      "Slug can only contain lowercase letters, numbers and hyphens"
+      "Slug can only contain lowercase letters, numbers and hyphens",
     )
     .optional()
     .or(z.literal("")),
@@ -133,9 +133,10 @@ export default function AddBlogPage() {
   };
 
   // Get current date for default publish date
+  // Get current date for default publish date (Malaysia timezone)
   const getCurrentDate = () => {
     const today = new Date();
-    return today.toISOString().split("T")[0];
+    return today.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" });
   };
 
   const defaultValues = {
@@ -227,7 +228,7 @@ export default function AddBlogPage() {
 
   // Handle image upload
   const handleImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -356,7 +357,7 @@ export default function AddBlogPage() {
     setShowValidationErrors(true);
 
     console.log(
-      "Blog validation completed. Setting hasValidated: true, showValidationErrors: true"
+      "Blog validation completed. Setting hasValidated: true, showValidationErrors: true",
     ); // Debug log
   };
 

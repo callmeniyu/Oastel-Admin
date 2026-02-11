@@ -31,7 +31,7 @@ const tourSchema = z
       .string()
       .regex(
         /^[a-z0-9-]*$/,
-        "Slug can only contain lowercase letters, numbers and hyphens"
+        "Slug can only contain lowercase letters, numbers and hyphens",
       )
       .optional()
       .or(z.literal("")),
@@ -69,37 +69,37 @@ const tourSchema = z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 100,
-          "About section must be at least 100 characters"
+          "About section must be at least 100 characters",
         ),
       itinerary: z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 100,
-          "Itinerary must be at least 100 characters"
+          "Itinerary must be at least 100 characters",
         ),
       pickupLocation: z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 10,
-          "Pickup location must be at least 10 characters"
+          "Pickup location must be at least 10 characters",
         ),
       pickupGuidelines: z
         .string()
         .refine(
           (val) => !val || stripHtmlTags(val).length >= 15,
-          "Pickup guidelines must be at least 15 characters"
+          "Pickup guidelines must be at least 15 characters",
         ),
       note: z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 10,
-          "Note must be at least 10 characters"
+          "Note must be at least 10 characters",
         ),
       faq: z.array(
         z.object({
           question: z.string().min(1, "Question is required"),
           answer: z.string().min(1, "Answer is required"),
-        })
+        }),
       ),
     }),
   })
@@ -113,7 +113,7 @@ const tourSchema = z
     {
       message: "New price must be less than or equal to old price",
       path: ["newPrice"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -125,7 +125,7 @@ const tourSchema = z
     {
       message: "Maximum persons must be greater than minimum persons",
       path: ["maximumPerson"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -140,7 +140,7 @@ const tourSchema = z
     {
       message: "Vehicle is required for private tours",
       path: ["vehicle"],
-    }
+    },
   );
 
 type TourFormData = z.infer<typeof tourSchema>;
@@ -318,7 +318,7 @@ export default function AddTourPage() {
 
   // Handle image upload
   const handleImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -445,7 +445,7 @@ export default function AddTourPage() {
     const fetchVehicles = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`,
         );
         const data = await res.json();
         if (data.success) setVehicles(data.data || []);
@@ -485,7 +485,7 @@ export default function AddTourPage() {
             units: vehicleUnits,
             seats: vehicleSeats,
           }),
-        }
+        },
       );
       const data = await res.json();
       if (data.success) {
@@ -526,7 +526,7 @@ export default function AddTourPage() {
     try {
       // All validation already done in handleSaveTour
       const validFaqs = data.details.faq.filter(
-        (faq) => faq.question.trim() && faq.answer.trim()
+        (faq) => faq.question.trim() && faq.answer.trim(),
       );
 
       const tourData = {
@@ -567,7 +567,7 @@ export default function AddTourPage() {
         `Failed to create tour: ${error.message || "Please try again."} ❌`,
         {
           duration: 4000,
-        }
+        },
       );
     } finally {
       setIsSubmitting(false);
@@ -585,7 +585,7 @@ export default function AddTourPage() {
 
     // Clear file input
     const fileInput = document.getElementById(
-      "image-upload"
+      "image-upload",
     ) as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
@@ -611,7 +611,7 @@ export default function AddTourPage() {
       "validationSuccess:",
       validationSuccess,
       "showValidationErrors:",
-      showValidationErrors
+      showValidationErrors,
     );
 
     // Clear previous validation state first (but don't reset hasValidated to avoid triggering useEffect)
@@ -631,7 +631,7 @@ export default function AddTourPage() {
     if (isFormValid) {
       const currentData = getValues();
       const validFaqs = currentData.details.faq.filter(
-        (faq) => faq.question.trim() && faq.answer.trim()
+        (faq) => faq.question.trim() && faq.answer.trim(),
       );
       console.log("Valid FAQs count:", validFaqs.length); // Debug log
 
@@ -652,7 +652,7 @@ export default function AddTourPage() {
     setShowValidationErrors(true);
 
     console.log(
-      "Validation completed. Setting hasValidated: true, showValidationErrors: true"
+      "Validation completed. Setting hasValidated: true, showValidationErrors: true",
     ); // Debug log
 
     // Additional debug - check state after a brief delay
@@ -663,7 +663,7 @@ export default function AddTourPage() {
         "validationSuccess:",
         validationSuccess,
         "showValidationErrors:",
-        showValidationErrors
+        showValidationErrors,
       );
     }, 200);
   };
@@ -996,7 +996,7 @@ export default function AddTourPage() {
                               onChange={(e) => {
                                 field.onChange(e);
                                 const v = vehicles.find(
-                                  (x) => x.name === e.target.value
+                                  (x) => x.name === e.target.value,
                                 );
                                 if (v) {
                                   setValue("seatCapacity", Number(v.seats));
@@ -1065,7 +1065,7 @@ export default function AddTourPage() {
                                     aria-label="decrease units"
                                     onClick={() =>
                                       setVehicleUnits(
-                                        Math.max(1, vehicleUnits - 1)
+                                        Math.max(1, vehicleUnits - 1),
                                       )
                                     }
                                     className="px-3 py-1 border rounded-md"
@@ -1077,7 +1077,10 @@ export default function AddTourPage() {
                                     value={vehicleUnits}
                                     onChange={(e) =>
                                       setVehicleUnits(
-                                        Math.max(1, Number(e.target.value || 1))
+                                        Math.max(
+                                          1,
+                                          Number(e.target.value || 1),
+                                        ),
                                       )
                                     }
                                     min={1}
@@ -1106,7 +1109,7 @@ export default function AddTourPage() {
                                     aria-label="decrease seats"
                                     onClick={() =>
                                       setVehicleSeats(
-                                        Math.max(1, vehicleSeats - 1)
+                                        Math.max(1, vehicleSeats - 1),
                                       )
                                     }
                                     className="px-3 py-1 border rounded-md"
@@ -1118,7 +1121,10 @@ export default function AddTourPage() {
                                     value={vehicleSeats}
                                     onChange={(e) =>
                                       setVehicleSeats(
-                                        Math.max(1, Number(e.target.value || 1))
+                                        Math.max(
+                                          1,
+                                          Number(e.target.value || 1),
+                                        ),
                                       )
                                     }
                                     min={1}
@@ -1326,6 +1332,7 @@ export default function AddTourPage() {
                     </p>
                   </div>
 
+                  {/* Review Count and Rating fields removed - not needed
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Review Count
@@ -1373,6 +1380,7 @@ export default function AddTourPage() {
                       {errors.rating?.message}
                     </p>
                   </div>
+                  */}
                 </div>
               </CollapsibleSection>
 

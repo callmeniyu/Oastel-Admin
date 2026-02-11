@@ -82,13 +82,13 @@ export default function RevenuePage() {
         // Calculate metrics for filtered data
         const totalRevenue = filteredBookings.reduce(
           (sum, booking) => sum + (booking.total || 0),
-          0
+          0,
         );
         const totalBookings = filteredBookings.length;
         const totalPersons = filteredBookings.reduce(
           (sum, booking) =>
             sum + (booking.adults || 0) + (booking.children || 0),
-          0
+          0,
         );
         const avgBookingValue =
           totalBookings > 0 ? totalRevenue / totalBookings : 0;
@@ -123,7 +123,7 @@ export default function RevenuePage() {
         });
 
         const packagePerformance = Array.from(packageMap.values()).sort(
-          (a, b) => b.revenue - a.revenue
+          (a, b) => b.revenue - a.revenue,
         );
 
         setRevenueData({
@@ -166,7 +166,7 @@ export default function RevenuePage() {
     const title = `Revenue Analytics Report - ${periodTitle}\n`;
     const subTitle = `Generated on: ${new Date().toLocaleDateString()}\n`;
     const dateRange = `Report Period: ${new Date(
-      startDate
+      startDate,
     ).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}\n\n`;
 
     // Create data rows with proper formatting
@@ -175,7 +175,7 @@ export default function RevenuePage() {
         (item) =>
           `"${item.name}","${item.type}",${item.bookings},${
             item.totalPersons
-          },"RM ${item.revenue.toFixed(2)}"`
+          },"RM ${item.revenue.toFixed(2)}"`,
       )
       .join("\n");
 
@@ -188,13 +188,13 @@ export default function RevenuePage() {
     const totalLabel = `"TOTAL - ${periodTitle}","All Packages",${
       revenueData.totalBookings
     },${revenueData.totalPersons},"RM ${revenueData.totalRevenue.toFixed(
-      2
+      2,
     )}"\n`;
 
     // Additional summary metrics
     const summaryHeader = "\n\nSUMMARY METRICS\n";
     const avgBookingValue = `"Average Booking Value","","","","RM ${revenueData.avgBookingValue.toFixed(
-      2
+      2,
     )}"\n`;
 
     // Combine all parts
@@ -213,9 +213,12 @@ export default function RevenuePage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
+    const dateStr = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kuala_Lumpur",
+    });
     a.download = `revenue-analytics-${periodTitle
       .replace(/\s+/g, "-")
-      .toLowerCase()}-${new Date().toISOString().split("T")[0]}.csv`;
+      .toLowerCase()}-${dateStr}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -423,15 +426,15 @@ export default function RevenuePage() {
                             item.type === "co-tour" || item.type === "tour"
                               ? "bg-blue-100 text-blue-800"
                               : item.type === "private-tour" ||
-                                item.type === "private"
-                              ? "bg-purple-100 text-purple-800"
-                              : item.type === "Van"
-                              ? "bg-green-100 text-green-800"
-                              : item.type === "Van + Ferry"
-                              ? "bg-teal-100 text-teal-800"
-                              : item.type === "Private"
-                              ? "bg-indigo-100 text-indigo-800"
-                              : "bg-gray-100 text-gray-800"
+                                  item.type === "private"
+                                ? "bg-purple-100 text-purple-800"
+                                : item.type === "Van"
+                                  ? "bg-green-100 text-green-800"
+                                  : item.type === "Van + Ferry"
+                                    ? "bg-teal-100 text-teal-800"
+                                    : item.type === "Private"
+                                      ? "bg-indigo-100 text-indigo-800"
+                                      : "bg-gray-100 text-gray-800"
                           }`}
                         >
                           {item.type}

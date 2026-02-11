@@ -47,7 +47,7 @@ export default function BlackoutDatesPage() {
   const addBlackoutDates = async () => {
     const dates = getDatesInRange(
       selectedRange.startDate,
-      selectedRange.endDate
+      selectedRange.endDate,
     );
     try {
       for (const date of dates) {
@@ -89,7 +89,9 @@ export default function BlackoutDatesPage() {
     const dates = [];
     let current = new Date(start);
     while (current <= end) {
-      dates.push(current.toISOString().split("T")[0]);
+      dates.push(
+        current.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" }),
+      );
       current.setDate(current.getDate() + 1);
     }
     return dates;

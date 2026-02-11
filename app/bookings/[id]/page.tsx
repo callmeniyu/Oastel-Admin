@@ -93,7 +93,7 @@ export default function PackageDetailsPage() {
         {
           // Add cache control for better performance
           next: { revalidate: 10 }, // Revalidate every 10 seconds
-        }
+        },
       );
 
       if (!response.ok) {
@@ -133,7 +133,7 @@ export default function PackageDetailsPage() {
       if (!packageId || !date || !type) return;
 
       const response = await fetch(
-        `/api/timeslots?packageId=${packageId}&date=${date}&packageType=${type}`
+        `/api/timeslots?packageId=${packageId}&date=${date}&packageType=${type}`,
       );
 
       if (!response.ok) {
@@ -149,7 +149,7 @@ export default function PackageDetailsPage() {
 
   const toggleSlotAvailability = async (
     time: string,
-    isCurrentlyAvailable: boolean
+    isCurrentlyAvailable: boolean,
   ) => {
     try {
       setIsUpdating(true);
@@ -184,7 +184,7 @@ export default function PackageDetailsPage() {
 
   const updateMinimumPerson = async (
     slotTime: string,
-    minimumPerson: number
+    minimumPerson: number,
   ) => {
     try {
       setIsUpdating(true);
@@ -234,7 +234,7 @@ export default function PackageDetailsPage() {
 
   const handleMinimumPersonSubmit = (
     slotTime: string,
-    currentValue: number
+    currentValue: number,
   ) => {
     const newValue = editingMinimumPerson[slotTime];
     const parsedValue = parseInt(newValue);
@@ -294,7 +294,7 @@ export default function PackageDetailsPage() {
       } else {
         console.error(
           "Failed to delete booking:",
-          data.error || "Unknown error"
+          data.error || "Unknown error",
         );
         toast.error("Failed to delete booking. Please try again.");
       }
@@ -351,7 +351,7 @@ export default function PackageDetailsPage() {
 
   const formatDateTime = (
     dateStr: string | undefined,
-    timeStr: string | undefined
+    timeStr: string | undefined,
   ) => {
     try {
       const d = dateStr ? new Date(dateStr) : null;
@@ -384,7 +384,7 @@ export default function PackageDetailsPage() {
 
   const totalCustomers = customers.reduce(
     (sum, customer) => sum + customer.adults + customer.children,
-    0
+    0,
   );
   const totalRevenue = customers
     .filter((customer) => customer.status !== "cancelled")
@@ -573,7 +573,7 @@ export default function PackageDetailsPage() {
                                     onChange={(e) =>
                                       handleMinimumPersonChange(
                                         slot.time,
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className="w-20 px-3 py-2 text-sm border rounded-md text-center"
@@ -585,7 +585,7 @@ export default function PackageDetailsPage() {
                                     onClick={() =>
                                       handleMinimumPersonSubmit(
                                         slot.time,
-                                        slot.minimumPerson
+                                        slot.minimumPerson,
                                       )
                                     }
                                     disabled={isUpdating}
@@ -621,7 +621,7 @@ export default function PackageDetailsPage() {
                                     onClick={() =>
                                       handleMinimumPersonChange(
                                         slot.time,
-                                        slot.minimumPerson.toString()
+                                        slot.minimumPerson.toString(),
                                       )
                                     }
                                     disabled={isUpdating}
@@ -656,13 +656,13 @@ export default function PackageDetailsPage() {
                             (slot.bookedCount / slot.capacity) * 100 >= 90
                               ? "bg-red-500"
                               : (slot.bookedCount / slot.capacity) * 100 >= 70
-                              ? "bg-yellow-500"
-                              : "bg-green-500"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
                           }`}
                           style={{
                             width: `${Math.min(
                               100,
-                              (slot.bookedCount / slot.capacity) * 100
+                              (slot.bookedCount / slot.capacity) * 100,
                             )}%`,
                           }}
                         ></div>
@@ -737,7 +737,12 @@ export default function PackageDetailsPage() {
                         </h3>
                         <p className="text-light text-sm">
                           Booked on{" "}
-                          {new Date(customer.createdAt).toLocaleDateString()}
+                          {new Date(customer.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              timeZone: "Asia/Kuala_Lumpur",
+                            },
+                          )}
                         </p>
                       </div>
                     </div>
@@ -747,7 +752,7 @@ export default function PackageDetailsPage() {
                           e.stopPropagation();
                           openDeleteConfirmation(
                             customer._id,
-                            customer.contactInfo.name
+                            customer.contactInfo.name,
                           );
                         }}
                         disabled={isUpdating}

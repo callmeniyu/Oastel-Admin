@@ -35,7 +35,7 @@ const tourSchema = z
       .min(1, "Slug is required")
       .regex(
         /^[a-z0-9-]*$/,
-        "Slug can only contain lowercase letters, numbers and hyphens"
+        "Slug can only contain lowercase letters, numbers and hyphens",
       ),
     image: z.string().min(1, "Please provide an image"),
     tags: z.array(z.string().min(1)).min(1, "At least one tag is required"),
@@ -71,33 +71,33 @@ const tourSchema = z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 100,
-          "About section must be at least 100 characters"
+          "About section must be at least 100 characters",
         ),
       itinerary: z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 100,
-          "Itinerary must be at least 100 characters"
+          "Itinerary must be at least 100 characters",
         ),
       pickupLocation: z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 10,
-          "Pickup location must be at least 10 characters"
+          "Pickup location must be at least 10 characters",
         ),
       pickupGuidelines: z.string().optional(),
       note: z
         .string()
         .refine(
           (val) => stripHtmlTags(val).length >= 10,
-          "Note must be at least 10 characters"
+          "Note must be at least 10 characters",
         ),
       faq: z
         .array(
           z.object({
             question: z.string(),
             answer: z.string(),
-          })
+          }),
         )
         .min(1, "At least one FAQ is required"),
     }),
@@ -112,7 +112,7 @@ const tourSchema = z
     {
       message: "New price must be less than or equal to old price",
       path: ["newPrice"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -124,7 +124,7 @@ const tourSchema = z
     {
       message: "Maximum persons must be greater than minimum persons",
       path: ["maximumPerson"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -139,7 +139,7 @@ const tourSchema = z
     {
       message: "Vehicle is required for private tours",
       path: ["vehicle"],
-    }
+    },
   );
 
 type TourFormData = z.infer<typeof tourSchema>;
@@ -426,7 +426,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
     const fetchVehicles = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles`,
         );
         const data = await res.json();
         if (data.success) setVehicles(data.data || []);
@@ -466,7 +466,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
             units: vehicleUnits,
             seats: vehicleSeats,
           }),
-        }
+        },
       );
       const data = await res.json();
       if (data.success) {
@@ -516,7 +516,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
 
   // Handle image upload
   const handleImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -612,7 +612,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
     try {
       // All validation already done in handleSaveTour
       const validFaqs = data.details.faq.filter(
-        (faq) => faq.question.trim() && faq.answer.trim()
+        (faq) => faq.question.trim() && faq.answer.trim(),
       );
 
       const tourData = {
@@ -640,7 +640,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
         `Failed to update tour: ${error.message || "Please try again."} ❌`,
         {
           duration: 4000,
-        }
+        },
       );
     } finally {
       setIsSubmitting(false);
@@ -658,7 +658,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
 
     // Clear file input
     const fileInput = document.getElementById(
-      "image-upload"
+      "image-upload",
     ) as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
@@ -689,7 +689,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
         // Additional custom validation for FAQ
         const currentData = getValues();
         const validFaqs = currentData.details.faq.filter(
-          (faq) => faq.question.trim() && faq.answer.trim()
+          (faq) => faq.question.trim() && faq.answer.trim(),
         );
 
         if (validFaqs.length === 0) {
@@ -698,7 +698,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
             "At least one complete FAQ (question and answer) is required",
             {
               duration: 4000,
-            }
+            },
           );
           setValidationSuccess(false);
         } else {
@@ -1265,6 +1265,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                       </p>
                     </div>
 
+                    {/* Review Count and Rating fields removed - not needed
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Rating (0-5)
@@ -1288,6 +1289,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                         {errors.rating?.message}
                       </p>
                     </div>
+                    */}
                   </div>
                 </CollapsibleSection>
 

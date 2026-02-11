@@ -106,7 +106,7 @@ export default function DashboardPage() {
             (bookingsData.bookings || bookingsData.data || []) as Booking[]
           ).reduce(
             (sum: number, booking: Booking) => sum + (booking.total || 0),
-            0
+            0,
           )
         : 0;
 
@@ -114,7 +114,7 @@ export default function DashboardPage() {
 
       const activeTours: number = (toursData as BookingsApiResponse).success
         ? ((toursData.tours || toursData.data || []) as Tour[]).filter(
-            (tour: Tour) => tour.status === "active"
+            (tour: Tour) => tour.status === "active",
           ).length
         : 0;
 
@@ -186,7 +186,7 @@ export default function DashboardPage() {
           .sort(
             (a: Booking, b: Booking) =>
               new Date(b.createdAt || b.date!).getTime() -
-              new Date(a.createdAt || a.date!).getTime()
+              new Date(a.createdAt || a.date!).getTime(),
           )
           .slice(0, 4)
           .map(
@@ -212,7 +212,7 @@ export default function DashboardPage() {
               pickupLocation: booking.pickupLocation || "N/A",
               total: booking.total || 0,
               createdAt: booking.createdAt,
-            })
+            }),
           );
 
         setRecentBookings(sortedBookings);
@@ -241,10 +241,12 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Function to format date consistently
+  // Function to format date consistently with Malaysia timezone
   const formatDate = (date: Date | string) => {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toISOString().split("T")[0];
+    return dateObj.toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kuala_Lumpur",
+    });
   };
 
   return (

@@ -55,20 +55,16 @@ export function parseDateStringAsMYT(dateString: string): Date {
   
   const [year, month, day] = dateString.split('-').map(Number);
   
-  // Create date in Malaysian timezone
-  // We construct a UTC date that represents the correct Malaysian date
-  // Malaysia is UTC+8, so midnight MYT = 16:00 previous day UTC
-  // But we use toLocaleString to handle DST and other edge cases properly
-  const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00`;
-  const date = new Date(dateStr);
+  // Malaysia is UTC+8
+  // To represent "2026-02-06 00:00:00 Malaysia time" in UTC, we need "2026-02-05 16:00:00 UTC"
+  // Create the date in UTC by manually calculating: subtract 8 hours from midnight
+  const utcDate = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
   
-  // Adjust for timezone offset
-  // Get the date as it would appear in Malaysian timezone
-  const malaysianDateStr = new Date(date.toLocaleString('en-US', { timeZone: MALAYSIA_TIMEZONE }));
+  // Subtract 8 hours (Malaysia offset) to get the correct UTC representation
+  const malaysiaOffsetMs = 8 * 60 * 60 * 1000;
+  const correctedUtc = utcDate - malaysiaOffsetMs;
   
-  // Calculate offset and create correct date
-  const offset = date.getTime() - malaysianDateStr.getTime();
-  return new Date(date.getTime() + offset);
+  return new Date(correctedUtc);
 }
 
 /**
