@@ -331,6 +331,16 @@ export default function DashboardPage() {
               <span className="text-2xl mb-2">🔖</span>
               <span className="font-medium">See Bookings</span>
             </button>
+            <button
+              onClick={() => router.push("/recovery")}
+              className="bg-red-50 p-4 rounded-lg shadow-sm border border-red-200 flex flex-col items-center justify-center hover:bg-red-100 transition-colors col-span-2"
+            >
+              <span className="text-2xl mb-2">⚠️</span>
+              <span className="font-medium text-red-700">Payment Recovery</span>
+              <span className="text-xs text-red-600 mt-1">
+                Recover orphaned payments
+              </span>
+            </button>
           </div>
         </div>
       </main>

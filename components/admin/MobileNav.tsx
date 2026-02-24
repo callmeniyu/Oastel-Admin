@@ -6,6 +6,7 @@ import {
   FiCalendar,
   FiUsers,
   FiBook,
+  FiAlertCircle,
 } from "react-icons/fi";
 import { RxDashboard } from "react-icons/rx";
 import { usePathname } from "next/navigation";
@@ -18,6 +19,7 @@ export default function MobileNav() {
     { name: "Bookings", path: "/bookings", icon: FiCalendar },
     { name: "Tours", path: "/tours", icon: FiCompass },
     { name: "Transfers", path: "/transfers", icon: FiTruck },
+    { name: "Recovery", path: "/recovery", icon: FiAlertCircle },
     { name: "Blogs", path: "/blogs", icon: FiBook },
   ];
 
