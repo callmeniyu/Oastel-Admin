@@ -9,9 +9,10 @@ import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { transferApi, TransferType } from "@/lib/transferApi";
 import { toast } from "react-hot-toast";
-import { FiRefreshCw, FiCalendar } from "react-icons/fi";
+import { FiRefreshCw, FiCalendar, FiClock } from "react-icons/fi";
 import AdminBookingModal from "@/components/AdminBookingModal";
 import BookingConfirmation from "@/components/BookingConfirmation";
+import SlotManagementModal from "@/components/admin/SlotManagementModal";
 
 interface TransferTableData {
   id: string;
@@ -69,6 +70,15 @@ export default function TransfersPage() {
     bookingData: null,
   });
 
+  // Slot management modal state
+  const [slotModal, setSlotModal] = useState<{
+    isOpen: boolean;
+    transferDetails: TransferType | null;
+  }>({
+    isOpen: false,
+    transferDetails: null,
+  });
+
   // Fetch transfers from API
   const fetchTransfers = async () => {
     try {
@@ -87,7 +97,7 @@ export default function TransfersPage() {
           isAvailable:
             transfer.isAvailable !== undefined ? transfer.isAvailable : true,
           _id: transfer._id,
-        })
+        }),
       );
 
       setTransfers(transformedTransfers);
@@ -125,8 +135,8 @@ export default function TransfersPage() {
       // Remove the deleted transfer from the local state
       setTransfers(
         transfers.filter(
-          (transfer) => transfer._id !== deleteConfirmation.transferId
-        )
+          (transfer) => transfer._id !== deleteConfirmation.transferId,
+        ),
       );
       toast.success("Transfer deleted successfully");
     } catch (error) {
@@ -191,7 +201,7 @@ export default function TransfersPage() {
   // Handle toggle availability
   const handleToggleAvailability = async (
     id: string,
-    currentStatus: boolean
+    currentStatus: boolean,
   ) => {
     try {
       const newStatus = !currentStatus;
@@ -202,12 +212,12 @@ export default function TransfersPage() {
         transfers.map((transfer) =>
           transfer._id === id
             ? { ...transfer, isAvailable: newStatus }
-            : transfer
-        )
+            : transfer,
+        ),
       );
 
       toast.success(
-        `Transfer ${newStatus ? "enabled" : "disabled"} successfully`
+        `Transfer ${newStatus ? "enabled" : "disabled"} successfully`,
       );
     } catch (error) {
       console.error("Error toggling availability:", error);
@@ -365,6 +375,25 @@ export default function TransfersPage() {
                     currentStatus: row.isAvailable as boolean,
                   });
                 },
+                onMore: async (row) => {
+                  try {
+                    const response = await transferApi.getTransferById(
+                      row._id as string,
+                    );
+                    if (response.success && response.data) {
+                      setSlotModal({
+                        isOpen: true,
+                        transferDetails: response.data,
+                      });
+                    }
+                  } catch (error) {
+                    console.error(
+                      "Error fetching transfer for slot management:",
+                      error,
+                    );
+                    toast.error("Failed to load transfer details");
+                  }
+                },
               }}
             />
           )}
@@ -410,7 +439,7 @@ export default function TransfersPage() {
           if (!availabilityConfirmation.transferId) return;
           await handleToggleAvailability(
             availabilityConfirmation.transferId,
-            availabilityConfirmation.currentStatus
+            availabilityConfirmation.currentStatus,
           );
         }}
         title={
@@ -478,6 +507,18 @@ export default function TransfersPage() {
         }
         bookingData={confirmationModal.bookingData}
       />
+
+      {/* Slot Management Modal */}
+      {slotModal.transferDetails && (
+        <SlotManagementModal
+          isOpen={slotModal.isOpen}
+          onClose={() => setSlotModal({ isOpen: false, transferDetails: null })}
+          packageId={slotModal.transferDetails._id}
+          packageName={slotModal.transferDetails.title}
+          packageType="transfer"
+          departureTimes={slotModal.transferDetails.times || []}
+        />
+      )}
     </div>
   );
 }

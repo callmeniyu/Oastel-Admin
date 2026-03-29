@@ -1,5 +1,11 @@
-import { FiEdit2, FiTrash2, FiMoreVertical, FiCalendar } from "react-icons/fi";
-import { ReactNode } from "react";
+import {
+  FiEdit2,
+  FiTrash2,
+  FiMoreVertical,
+  FiCalendar,
+  FiClock,
+} from "react-icons/fi";
+import { ReactNode, useState, useRef, useEffect } from "react";
 
 type Column = {
   key: string;
@@ -29,8 +35,24 @@ export default function DataTable({
   rowActions: string[];
   actionHandlers?: ActionHandlers;
 }) {
+  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto min-h-[400px]">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
@@ -79,7 +101,7 @@ export default function DataTable({
                   return (
                     <td
                       key={column.key}
-                      className="px-4 py-3 whitespace-nowrap"
+                      className="px-4 py-3 whitespace-nowrap relative"
                     >
                       <div className="flex items-center space-x-2">
                         {rowActions.includes("book") && (
@@ -109,13 +131,45 @@ export default function DataTable({
                             <FiTrash2 />
                           </button>
                         )}
-                        <button
-                          onClick={() => actionHandlers?.onMore?.(row)}
-                          className="text-gray-600 hover:text-gray-900"
-                          title="More actions"
-                        >
-                          <FiMoreVertical />
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={() =>
+                              setActiveDropdown(
+                                activeDropdown === rowIndex ? null : rowIndex,
+                              )
+                            }
+                            className="text-gray-600 hover:text-gray-900 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                            title="More actions"
+                          >
+                            <FiMoreVertical size={18} />
+                          </button>
+
+                          {activeDropdown === rowIndex && (
+                            <div
+                              ref={dropdownRef}
+                              className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[100] origin-top-right"
+                            >
+                              <div
+                                className="py-1"
+                                role="menu"
+                                aria-orientation="vertical"
+                              >
+                                <button
+                                  onClick={() => {
+                                    actionHandlers?.onMore?.(row);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                  role="menuitem"
+                                >
+                                  <FiClock className="mr-3 text-gray-400" />
+                                  Manage Time Slots
+                                </button>
+                                {/* Add more menu items here in the future */}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   );

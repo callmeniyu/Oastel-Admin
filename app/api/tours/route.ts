@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
     try {
+        const { searchParams } = new URL(request.url);
+        const limit = searchParams.get('limit') || '1000';
+        
         const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/tours`,
+            `${process.env.NEXT_PUBLIC_API_URL}/api/tours?limit=${limit}`,
             {
                 method: 'GET',
                 headers: {

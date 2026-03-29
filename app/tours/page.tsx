@@ -9,9 +9,10 @@ import Confirmation from "@/components/ui/Confirmation";
 import Link from "next/link";
 import { tourApi, TourType } from "@/lib/tourApi";
 import { toast } from "react-hot-toast";
-import { FiRefreshCw, FiCalendar } from "react-icons/fi";
+import { FiRefreshCw, FiCalendar, FiClock } from "react-icons/fi";
 import AdminBookingModal from "@/components/AdminBookingModal";
 import BookingConfirmation from "@/components/BookingConfirmation";
+import SlotManagementModal from "@/components/admin/SlotManagementModal";
 
 interface TourTableData {
   id: string;
@@ -67,6 +68,15 @@ export default function ToursPage() {
   }>({
     isOpen: false,
     bookingData: null,
+  });
+
+  // Slot management modal state
+  const [slotModal, setSlotModal] = useState<{
+    isOpen: boolean;
+    tourDetails: TourType | null;
+  }>({
+    isOpen: false,
+    tourDetails: null,
   });
 
   // Fetch tours from API
@@ -376,6 +386,20 @@ export default function ToursPage() {
                     currentStatus: row.isAvailable as boolean,
                   });
                 },
+                onMore: async (row) => {
+                  try {
+                    const response = await tourApi.getTourById(row._id as string);
+                    if (response.success && response.data) {
+                      setSlotModal({
+                        isOpen: true,
+                        tourDetails: response.data,
+                      });
+                    }
+                  } catch (error) {
+                    console.error("Error fetching tour for slot management:", error);
+                    toast.error("Failed to load tour details");
+                  }
+                },
               }}
             />
           )}
@@ -485,6 +509,18 @@ export default function ToursPage() {
         }
         bookingData={confirmationModal.bookingData}
       />
+
+      {/* Slot Management Modal */}
+      {slotModal.tourDetails && (
+        <SlotManagementModal
+          isOpen={slotModal.isOpen}
+          onClose={() => setSlotModal({ isOpen: false, tourDetails: null })}
+          packageId={slotModal.tourDetails._id}
+          packageName={slotModal.tourDetails.title}
+          packageType="tour"
+          departureTimes={slotModal.tourDetails.departureTimes || []}
+        />
+      )}
     </div>
   );
 }

@@ -193,4 +193,33 @@ export const tourApi = {
             throw error
         }
     },
+
+    // Toggle slots availability for a date range
+    toggleSlotsRange: async (params: {
+        packageType: "tour" | "transfer";
+        packageId: string;
+        startDate: string;
+        endDate: string;
+        times: string[];
+        isAvailable: boolean;
+    }): Promise<{ success: boolean; message: string; data: { updatedCount: number } }> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/timeslots/toggle-range-availability`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(params),
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            return await response.json()
+        } catch (error) {
+            console.error("Error toggling slots range availability:", error)
+            throw error
+        }
+    },
 }
