@@ -69,7 +69,10 @@ const transferSchema = z
       .number()
       .min(1, "Maximum must be at least 1 person")
       .optional(),
-    seatCapacity: z.number().min(1, "Seat capacity must be at least 1"),
+    seatCapacity: z
+      .number()
+      .min(1, "Seat capacity must be at least 1")
+      .optional(),
     departureTimes: z
       .array(z.string())
       .min(1, "At least one departure time is required"),
@@ -214,6 +217,18 @@ const transferSchema = z
     {
       message: "Vehicle name is required for private transfers",
       path: ["vehicle"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.type === "Private") {
+        return typeof data.seatCapacity === "number" && data.seatCapacity >= 1;
+      }
+      return true;
+    },
+    {
+      message: "Seat capacity is required for private transfers",
+      path: ["seatCapacity"],
     },
   );
 
@@ -2278,6 +2293,15 @@ export default function EditTransferPage({
                                     </span>
                                   </li>
                                 )}
+                                {errors.type && (
+                                  <li className="flex items-start">
+                                    <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
+                                    <span>
+                                      <strong>Transfer Type:</strong>{" "}
+                                      {errors.type.message}
+                                    </span>
+                                  </li>
+                                )}
                                 {errors.oldPrice && (
                                   <li className="flex items-start">
                                     <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
@@ -2305,6 +2329,15 @@ export default function EditTransferPage({
                                     </span>
                                   </li>
                                 )}
+                                {errors.seatCapacity && (
+                                  <li className="flex items-start">
+                                    <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
+                                    <span>
+                                      <strong>Seat Capacity:</strong>{" "}
+                                      {errors.seatCapacity.message}
+                                    </span>
+                                  </li>
+                                )}
                                 {errors.details?.about && (
                                   <li className="flex items-start">
                                     <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
@@ -2329,6 +2362,15 @@ export default function EditTransferPage({
                                     <span>
                                       <strong>Pickup Location:</strong>{" "}
                                       {errors.details.pickupLocation.message}
+                                    </span>
+                                  </li>
+                                )}
+                                {errors.details?.pickupGuidelines && (
+                                  <li className="flex items-start">
+                                    <span className="w-2 h-2 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
+                                    <span>
+                                      <strong>Pickup Guidelines:</strong>{" "}
+                                      {errors.details.pickupGuidelines.message}
                                     </span>
                                   </li>
                                 )}
