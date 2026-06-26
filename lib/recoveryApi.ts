@@ -169,4 +169,18 @@ export const recoveryApi = {
       throw error;
     }
   },
+
+  // Get cancelled/refunded bookings
+  getRefundedBookings: async (): Promise<{ success: boolean; data: any[] }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/recovery/refunded`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error getting refunded bookings:", error);
+      throw error;
+    }
+  },
 };

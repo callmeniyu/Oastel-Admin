@@ -13,6 +13,9 @@ import {
   FiPackage,
   FiSearch,
   FiUsers,
+  FiExternalLink,
+  FiSlash,
+  FiBookOpen,
 } from "react-icons/fi";
 import {
   recoveryApi,
@@ -39,7 +42,6 @@ const formatDate = (dateString: string) => {
 const formatTime = (timeString: string) => {
   if (!timeString) return "N/A";
   try {
-    // If it's an ISO timestamp, extract time
     if (timeString.includes("T")) {
       const date = new Date(timeString);
       return date.toLocaleTimeString("en-MY", {
@@ -71,24 +73,24 @@ const formatCreatedDate = (date: Date) => {
 };
 
 export default function PaymentRecoveryPage() {
+  const [activeTab, setActiveTab] = useState<"recovery" | "refunded">("recovery");
   const [isScanning, setIsScanning] = useState(false);
-  const [orphanedPayments, setOrphanedPayments] = useState<OrphanedPayment[]>(
-    [],
-  );
-  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(
-    new Set(),
-  );
+  const [orphanedPayments, setOrphanedPayments] = useState<OrphanedPayment[]>([]);
+  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
   const [lastScanTime, setLastScanTime] = useState<Date | null>(null);
   const [scanSummary, setScanSummary] = useState<any>(null);
   const [isRecovering, setIsRecovering] = useState<string | null>(null);
   const [recoveryHistory, setRecoveryHistory] = useState<any[]>([]);
 
+  // Refunded Bookings states
+  const [refundedBookings, setRefundedBookings] = useState<any[]>([]);
+  const [loadingRefunded, setLoadingRefunded] = useState(false);
+  const [refundedError, setRefundedError] = useState<string | null>(null);
+
   // Manual recovery form
   const [manualPaymentId, setManualPaymentId] = useState("");
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(
-    null,
-  );
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
 
   // Toast notification
   const [toast, setToast] = useState<{
@@ -99,6 +101,7 @@ export default function PaymentRecoveryPage() {
   useEffect(() => {
     // Auto-scan on mount
     handleScan();
+    fetchRefundedBookings();
   }, []);
 
   const showToast = (message: string, type: "success" | "error") => {
@@ -117,7 +120,7 @@ export default function PaymentRecoveryPage() {
       if (result.orphanedPayments.length > 0) {
         showToast(
           `Found ${result.orphanedPayments.length} orphaned payment(s)`,
-          "error",
+          "error"
         );
       } else {
         showToast("No orphaned payments found", "success");
@@ -127,6 +130,24 @@ export default function PaymentRecoveryPage() {
       showToast("Failed to scan for orphaned payments", "error");
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const fetchRefundedBookings = async () => {
+    setLoadingRefunded(true);
+    setRefundedError(null);
+    try {
+      const result = await recoveryApi.getRefundedBookings();
+      if (result.success && result.data) {
+        setRefundedBookings(result.data);
+      } else {
+        setRefundedError("Failed to fetch refunded bookings");
+      }
+    } catch (error: any) {
+      console.error("Fetch refunded bookings error:", error);
+      setRefundedError(error.message || "Failed to load refunded bookings");
+    } finally {
+      setLoadingRefunded(false);
     }
   };
 
@@ -140,7 +161,7 @@ export default function PaymentRecoveryPage() {
           result.alreadyExists
             ? "Booking already exists"
             : `Successfully recovered! Booking ID: ${result.bookingId}`,
-          "success",
+          "success"
         );
 
         // Add to history
@@ -157,7 +178,7 @@ export default function PaymentRecoveryPage() {
 
         // Remove from orphaned list
         setOrphanedPayments((prev) =>
-          prev.filter((p) => p.paymentIntentId !== paymentIntentId),
+          prev.filter((p) => p.paymentIntentId !== paymentIntentId)
         );
 
         // Update summary
@@ -186,19 +207,19 @@ export default function PaymentRecoveryPage() {
     }
 
     const confirmed = confirm(
-      `Are you sure you want to recover ${selectedPayments.size} payment(s)?`,
+      `Are you sure you want to recover ${selectedPayments.size} payment(s)?`
     );
     if (!confirmed) return;
 
     setIsRecovering("batch");
     try {
       const result = await recoveryApi.batchRecover(
-        Array.from(selectedPayments),
+        Array.from(selectedPayments)
       );
 
       showToast(
         `Batch recovery complete: ${result.summary.successful} successful, ${result.summary.failed} failed`,
-        result.summary.failed > 0 ? "error" : "success",
+        result.summary.failed > 0 ? "error" : "success"
       );
 
       // Add successful recoveries to history
@@ -263,7 +284,7 @@ export default function PaymentRecoveryPage() {
       setSelectedPayments(new Set());
     } else {
       setSelectedPayments(
-        new Set(orphanedPayments.map((p) => p.paymentIntentId)),
+        new Set(orphanedPayments.map((p) => p.paymentIntentId))
       );
     }
   };
@@ -293,228 +314,392 @@ export default function PaymentRecoveryPage() {
             Payment Recovery Dashboard
           </h1>
           <p className="text-gray-600 mt-2">
-            Detect and recover successful payments that failed to create
-            bookings
+            Detect and recover successful payments that failed to create bookings, or audit cancelled bookings.
           </p>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Orphaned Payments</p>
-                <p className="text-3xl font-bold text-red-600">
-                  {scanSummary?.orphanedPayments || 0}
-                </p>
-              </div>
-              <FiAlertCircle className="text-4xl text-red-300" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Successful</p>
-                <p className="text-3xl font-bold text-green-600">
-                  {scanSummary?.successfulWithBookings || 0}
-                </p>
-              </div>
-              <FiCheckCircle className="text-4xl text-green-300" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Scanned</p>
-                <p className="text-3xl font-bold text-blue-600">
-                  {scanSummary?.totalScanned || 0}
-                </p>
-              </div>
-              <FiPackage className="text-4xl text-blue-300" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Last Scan</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {lastScanTime
-                    ? new Date(lastScanTime).toLocaleTimeString()
-                    : "Never"}
-                </p>
-              </div>
-              <FiClock className="text-4xl text-gray-300" />
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 mb-8">
+          <button
+            onClick={() => setActiveTab("recovery")}
+            className={`px-6 py-4 font-semibold text-lg relative transition-colors ${
+              activeTab === "recovery"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <FiRefreshCw />
+              Payment Recovery
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("refunded");
+              fetchRefundedBookings();
+            }}
+            className={`px-6 py-4 font-semibold text-lg relative transition-colors ${
+              activeTab === "refunded"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <FiSlash className="text-red-500" />
+              Refunded Bookings
+              <span className="ml-2 bg-red-100 text-red-800 text-sm px-2 py-0.5 rounded-full">
+                {refundedBookings.length}
+              </span>
+            </span>
+          </button>
         </div>
 
-        {/* Scan Controls */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleScan(24)}
-                disabled={isScanning}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <FiRefreshCw className={isScanning ? "animate-spin" : ""} />
-                {isScanning ? "Scanning..." : "Scan Last 24 Hours"}
-              </button>
+        {activeTab === "recovery" ? (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Orphaned Payments</p>
+                    <p className="text-3xl font-bold text-red-600">
+                      {scanSummary?.orphanedPayments || 0}
+                    </p>
+                  </div>
+                  <FiAlertCircle className="text-4xl text-red-300" />
+                </div>
+              </div>
 
-              <button
-                onClick={() => handleScan(48)}
-                disabled={isScanning}
-                className="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Scan Last 48 Hours
-              </button>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Successful</p>
+                    <p className="text-3xl font-bold text-green-600">
+                      {scanSummary?.successfulWithBookings || 0}
+                    </p>
+                  </div>
+                  <FiCheckCircle className="text-4xl text-green-300" />
+                </div>
+              </div>
 
-              <button
-                onClick={() => handleScan(168)}
-                disabled={isScanning}
-                className="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Scan Last Week
-              </button>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Scanned</p>
+                    <p className="text-3xl font-bold text-blue-600">
+                      {scanSummary?.totalScanned || 0}
+                    </p>
+                  </div>
+                  <FiPackage className="text-4xl text-blue-300" />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Last Scan</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {lastScanTime
+                        ? new Date(lastScanTime).toLocaleTimeString()
+                        : "Never"}
+                    </p>
+                  </div>
+                  <FiClock className="text-4xl text-gray-300" />
+                </div>
+              </div>
             </div>
 
-            {selectedPayments.size > 0 && (
-              <button
-                onClick={handleBatchRecover}
-                disabled={isRecovering === "batch"}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <FiCheckCircle />
-                Recover Selected ({selectedPayments.size})
-              </button>
-            )}
-          </div>
-        </div>
+            {/* Scan Controls */}
+            <div className="bg-white rounded-lg shadow p-6 mb-8">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleScan(24)}
+                    disabled={isScanning}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FiRefreshCw className={isScanning ? "animate-spin" : ""} />
+                    {isScanning ? "Scanning..." : "Scan Last 24 Hours"}
+                  </button>
 
-        {/* Orphaned Payments Table */}
-        {orphanedPayments.length > 0 && (
-          <div className="bg-white rounded-lg shadow mb-8 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Orphaned Payments ({orphanedPayments.length})
-              </h2>
-              <button
-                onClick={selectAll}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                {selectedPayments.size === orphanedPayments.length
-                  ? "Deselect All"
-                  : "Select All"}
-              </button>
+                  <button
+                    onClick={() => handleScan(48)}
+                    disabled={isScanning}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Scan Last 48 Hours
+                  </button>
+
+                  <button
+                    onClick={() => handleScan(168)}
+                    disabled={isScanning}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Scan Last Week
+                  </button>
+                </div>
+
+                {selectedPayments.size > 0 && (
+                  <button
+                    onClick={handleBatchRecover}
+                    disabled={isRecovering === "batch"}
+                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FiCheckCircle />
+                    Recover Selected ({selectedPayments.size})
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Select
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Payment ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Package Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Guests
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date & Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {orphanedPayments.map((payment) => (
-                    <tr
-                      key={payment.paymentIntentId}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedPayments.has(
-                            payment.paymentIntentId,
-                          )}
-                          onChange={() =>
-                            togglePaymentSelection(payment.paymentIntentId)
-                          }
-                          className="h-4 w-4 text-blue-600 rounded"
-                        />
-                      </td>
-                      <td className="px-6 py-4">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                          {payment.paymentIntentId.substring(0, 20)}...
-                        </code>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">
-                            {payment.customerName}
-                          </div>
-                          <div className="text-gray-500">
-                            {payment.customerEmail}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {payment.currency.toUpperCase()}{" "}
-                          {payment.amount.toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {payment.packageName || payment.packageType || "N/A"}
-                        </div>
-                        <span className="inline-block mt-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                          {payment.packageType}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1 text-sm text-gray-900">
-                          <FiUsers className="text-gray-400" />
-                          {payment.totalGuests || "0"} guests
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div className="font-medium">
-                          {formatDate(payment.date)}
-                        </div>
-                        <div className="text-gray-500">
-                          {formatTime(payment.time)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {formatCreatedDate(payment.created)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleRecover(payment.paymentIntentId)}
-                          disabled={isRecovering === payment.paymentIntentId}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            {/* Orphaned Payments Table */}
+            {orphanedPayments.length > 0 && (
+              <div className="bg-white rounded-lg shadow mb-8 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Orphaned Payments ({orphanedPayments.length})
+                  </h2>
+                  <button
+                    onClick={selectAll}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
+                  >
+                    {selectedPayments.size === orphanedPayments.length
+                      ? "Deselect All"
+                      : "Select All"}
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Select
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Payment ID
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Customer
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Package Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Guests
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date & Time
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {orphanedPayments.map((payment) => (
+                        <tr
+                          key={payment.paymentIntentId}
+                          className="hover:bg-gray-50"
                         >
-                          {isRecovering === payment.paymentIntentId ? (
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedPayments.has(payment.paymentIntentId)}
+                              onChange={() => togglePaymentSelection(payment.paymentIntentId)}
+                              className="h-4 w-4 text-blue-600 rounded"
+                            />
+                          </td>
+                          <td className="px-6 py-4">
+                            <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {payment.paymentIntentId.substring(0, 20)}...
+                            </code>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm">
+                              <div className="font-medium text-gray-900">
+                                {payment.customerName}
+                              </div>
+                              <div className="text-gray-500">
+                                {payment.customerEmail}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {payment.currency.toUpperCase()}{" "}
+                              {payment.amount.toFixed(2)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900">
+                              {payment.packageName || payment.packageType || "N/A"}
+                            </div>
+                            <span className="inline-block mt-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                              {payment.packageType}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1 text-sm text-gray-900">
+                              <FiUsers className="text-gray-400" />
+                              {payment.totalGuests || "0"} guests
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            <div className="font-medium">
+                              {formatDate(payment.date)}
+                            </div>
+                            <div className="text-gray-500">
+                              {formatTime(payment.time)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {formatCreatedDate(payment.created)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleRecover(payment.paymentIntentId)}
+                              disabled={isRecovering === payment.paymentIntentId}
+                              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {isRecovering === payment.paymentIntentId ? (
+                                <>
+                                  <FiRefreshCw className="animate-spin" />
+                                  Recovering...
+                                </>
+                              ) : (
+                                <>
+                                  <FiCheckCircle />
+                                  Recover
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Manual Recovery & History Sections */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <FiSearch />
+                  Manual Recovery
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Enter a payment intent ID to check details and recover manually
+                </p>
+
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualPaymentId}
+                      onChange={(e) => setManualPaymentId(e.target.value)}
+                      placeholder="pi_3T007nLco0sMvd2r2yLiJKij"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button
+                      onClick={handleGetDetails}
+                      disabled={isLoadingDetails}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isLoadingDetails ? "Loading..." : "Check"}
+                    </button>
+                  </div>
+
+                  {paymentDetails && (
+                    <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between pb-3 border-b">
+                        <span className="text-sm font-medium text-gray-600">
+                          Status:
+                        </span>
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            paymentDetails.payment.status === "succeeded"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {paymentDetails.payment.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-600">
+                          Amount:
+                        </span>
+                        <span className="text-sm text-gray-900">
+                          {paymentDetails.payment.currency.toUpperCase()}{" "}
+                          {paymentDetails.payment.amount.toFixed(2)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-600">
+                          Has Booking:
+                        </span>
+                        <span className="text-sm text-gray-900">
+                          {paymentDetails.analysis.hasBooking ? (
+                            <span className="text-green-600">✓ Yes</span>
+                          ) : (
+                            <span className="text-red-600">✗ No</span>
+                          )}
+                        </span>
+                      </div>
+
+                      {paymentDetails.booking && (
+                        <div className="pt-3 border-t">
+                          <p className="text-sm text-gray-600 mb-2">
+                            Booking Details:
+                          </p>
+                          <div className="bg-gray-50 rounded p-3 space-y-2 text-sm">
+                            <div>
+                              Booking ID:{" "}
+                              <code className="bg-white px-2 py-1 rounded">
+                                {paymentDetails.booking.id}
+                              </code>
+                            </div>
+                            <div>
+                              Customer: {paymentDetails.booking.customerName}
+                            </div>
+                            <div>Email: {paymentDetails.booking.customerEmail}</div>
+                            <div>
+                              Status:{" "}
+                              <span className="font-medium">
+                                {paymentDetails.booking.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-3 border-t">
+                        <p className="text-sm font-medium text-gray-900 mb-2">
+                          Recommendation:
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {paymentDetails.analysis.recommendation}
+                        </p>
+                      </div>
+
+                      {paymentDetails.analysis.canRecover && (
+                        <button
+                          onClick={() => handleRecover(paymentDetails.payment.id)}
+                          disabled={isRecovering === paymentDetails.payment.id}
+                          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isRecovering === paymentDetails.payment.id ? (
                             <>
                               <FiRefreshCw className="animate-spin" />
                               Recovering...
@@ -522,230 +707,214 @@ export default function PaymentRecoveryPage() {
                           ) : (
                             <>
                               <FiCheckCircle />
-                              Recover
+                              Recover This Payment
                             </>
                           )}
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Manual Recovery Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <FiSearch />
-              Manual Recovery
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter a payment intent ID to check details and recover manually
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={manualPaymentId}
-                  onChange={(e) => setManualPaymentId(e.target.value)}
-                  placeholder="pi_3T007nLco0sMvd2r2yLiJKij"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  onClick={handleGetDetails}
-                  disabled={isLoadingDetails}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isLoadingDetails ? "Loading..." : "Check"}
-                </button>
-              </div>
-
-              {paymentDetails && (
-                <div className="border border-gray-200 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between pb-3 border-b">
-                    <span className="text-sm font-medium text-gray-600">
-                      Status:
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        paymentDetails.payment.status === "succeeded"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {paymentDetails.payment.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-600">
-                      Amount:
-                    </span>
-                    <span className="text-sm text-gray-900">
-                      {paymentDetails.payment.currency.toUpperCase()}{" "}
-                      {paymentDetails.payment.amount.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-600">
-                      Has Booking:
-                    </span>
-                    <span className="text-sm text-gray-900">
-                      {paymentDetails.analysis.hasBooking ? (
-                        <span className="text-green-600">✓ Yes</span>
-                      ) : (
-                        <span className="text-red-600">✗ No</span>
                       )}
-                    </span>
-                  </div>
-
-                  {paymentDetails.booking && (
-                    <div className="pt-3 border-t">
-                      <p className="text-sm text-gray-600 mb-2">
-                        Booking Details:
-                      </p>
-                      <div className="bg-gray-50 rounded p-3 space-y-2 text-sm">
-                        <div>
-                          Booking ID:{" "}
-                          <code className="bg-white px-2 py-1 rounded">
-                            {paymentDetails.booking.id}
-                          </code>
-                        </div>
-                        <div>
-                          Customer: {paymentDetails.booking.customerName}
-                        </div>
-                        <div>Email: {paymentDetails.booking.customerEmail}</div>
-                        <div>
-                          Status:{" "}
-                          <span className="font-medium">
-                            {paymentDetails.booking.status}
-                          </span>
-                        </div>
-                      </div>
                     </div>
-                  )}
-
-                  <div className="pt-3 border-t">
-                    <p className="text-sm font-medium text-gray-900 mb-2">
-                      Recommendation:
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {paymentDetails.analysis.recommendation}
-                    </p>
-                  </div>
-
-                  {paymentDetails.analysis.canRecover && (
-                    <button
-                      onClick={() => handleRecover(paymentDetails.payment.id)}
-                      disabled={isRecovering === paymentDetails.payment.id}
-                      className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isRecovering === paymentDetails.payment.id ? (
-                        <>
-                          <FiRefreshCw className="animate-spin" />
-                          Recovering...
-                        </>
-                      ) : (
-                        <>
-                          <FiCheckCircle />
-                          Recover This Payment
-                        </>
-                      )}
-                    </button>
                   )}
                 </div>
-              )}
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <FiClock />
+                  Recovery History
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Recently recovered payments (session only)
+                </p>
+
+                {recoveryHistory.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No recoveries yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recoveryHistory.slice(0, 10).map((item, index) => (
+                      <div
+                        key={index}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FiCheckCircle className="text-green-500" />
+                              <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                {item.paymentIntentId.substring(0, 20)}...
+                              </code>
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              <div>
+                                Booking:{" "}
+                                <span className="font-medium">
+                                  {item.bookingId}
+                                </span>
+                              </div>
+                              {item.customerEmail && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <FiMail className="text-xs" />
+                                  {item.customerEmail}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(item.timestamp).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Recovery History */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <FiClock />
-              Recovery History
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Recently recovered payments (session only)
-            </p>
+            {/* Help Section */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">
+                ℹ️ How to Use
+              </h3>
+              <ul className="space-y-2 text-sm text-blue-800">
+                <li>
+                  <strong>1. Scan:</strong> Click scan buttons to detect orphaned payments (successful payments without bookings)
+                </li>
+                <li>
+                  <strong>2. Review:</strong> Check the orphaned payments table for details about each payment
+                </li>
+                <li>
+                  <strong>3. Recover:</strong> Click "Recover" button to create booking from payment metadata and send confirmation email
+                </li>
+                <li>
+                  <strong>4. Batch:</strong> Select multiple payments and use "Recover Selected" for bulk recovery
+                </li>
+                <li>
+                  <strong>5. Manual:</strong> Enter specific payment intent ID for detailed investigation and recovery
+                </li>
+              </ul>
+            </div>
+          </>
+        ) : (
+          /* Refunded Bookings Tab Content */
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <FiSlash className="text-red-500" />
+                Cancelled & Refunded Bookings ({refundedBookings.length})
+              </h2>
+              <button
+                onClick={fetchRefundedBookings}
+                disabled={loadingRefunded}
+                className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-semibold disabled:opacity-50"
+              >
+                <FiRefreshCw className={loadingRefunded ? "animate-spin" : ""} />
+                Refresh List
+              </button>
+            </div>
 
-            {recoveryHistory.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No recoveries yet</p>
+            {loadingRefunded ? (
+              <div className="flex justify-center items-center py-20">
+                <FiRefreshCw className="animate-spin text-4xl text-blue-600 mb-2" />
+                <span className="ml-3 text-gray-600 text-lg font-medium">Fetching cancelled list...</span>
+              </div>
+            ) : refundedError ? (
+              <div className="text-center py-16 px-6">
+                <div className="max-w-md mx-auto bg-red-50 border border-red-200 rounded-xl p-6 text-red-600 font-medium">
+                  {refundedError}
+                </div>
+              </div>
+            ) : refundedBookings.length === 0 ? (
+              <div className="text-center py-20 text-gray-500">
+                <FiSlash className="text-5xl text-gray-300 mx-auto mb-4" />
+                <p className="text-lg font-medium">No refunded bookings logged in the system.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {recoveryHistory.slice(0, 10).map((item, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FiCheckCircle className="text-green-500" />
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                            {item.paymentIntentId.substring(0, 20)}...
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Booking ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer Info
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Service Details
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount Paid
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Refund Issued
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Cancelled Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Stripe Link
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {refundedBookings.map((booking) => (
+                      <tr key={booking._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <code className="text-xs bg-gray-100 px-2 py-1 rounded select-all">
+                            {booking._id}
                           </code>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          <div>
-                            Booking:{" "}
-                            <span className="font-medium">
-                              {item.bookingId}
-                            </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            <div className="font-semibold text-gray-900">{booking.customerName}</div>
+                            <div className="text-gray-500">{booking.customerEmail}</div>
+                            <div className="text-gray-400 text-xs">{booking.customerPhone}</div>
                           </div>
-                          {item.customerEmail && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <FiMail className="text-xs" />
-                              {item.customerEmail}
-                            </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 font-medium">
+                            {booking.packageName}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {formatDate(booking.date)} at {booking.time}
+                          </div>
+                          <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
+                            {booking.packageType}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                          RM {booking.totalAmount.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold text-red-600">
+                          RM {booking.refundAmount.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {formatCreatedDate(booking.cancelledAt)}
+                        </td>
+                        <td className="px-6 py-4">
+                          {booking.stripePaymentIntentId && booking.stripePaymentIntentId !== "N/A" && booking.stripePaymentIntentId !== "None" ? (
+                            <a
+                              href={`https://dashboard.stripe.com/acct_1OOETwLco0sMvd2r/payments/${booking.stripePaymentIntentId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                            >
+                              Stripe Detail
+                              <FiExternalLink />
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 text-xs">No Stripe charge</span>
                           )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(item.timestamp).toLocaleTimeString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
-        </div>
-
-        {/* Help Section */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">
-            ℹ️ How to Use
-          </h3>
-          <ul className="space-y-2 text-sm text-blue-800">
-            <li>
-              <strong>1. Scan:</strong> Click scan buttons to detect orphaned
-              payments (successful payments without bookings)
-            </li>
-            <li>
-              <strong>2. Review:</strong> Check the orphaned payments table for
-              details about each payment
-            </li>
-            <li>
-              <strong>3. Recover:</strong> Click "Recover" button to create
-              booking from payment metadata and send confirmation email
-            </li>
-            <li>
-              <strong>4. Batch:</strong> Select multiple payments and use
-              "Recover Selected" for bulk recovery
-            </li>
-            <li>
-              <strong>5. Manual:</strong> Enter specific payment intent ID for
-              detailed investigation and recovery
-            </li>
-          </ul>
-        </div>
+        )}
       </main>
     </div>
   );
