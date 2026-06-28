@@ -5,6 +5,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import MobileNav from "@/components/admin/MobileNav";
 import StatsCard from "@/components/admin/StatsCard";
 import { FiClock, FiUsers } from "react-icons/fi";
+import { formatMalaysianDateForDisplay } from "@/lib/dateUtils";
 
 interface Booking {
   _id?: string;
@@ -196,7 +197,7 @@ export default function DashboardPage() {
                 booking.packageId?.title || booking.title || "Unknown Package",
               packageType: booking.packageType,
               date: booking.date
-                ? new Date(booking.date).toLocaleDateString("en-GB", {
+                ? formatMalaysianDateForDisplay(new Date(booking.date), {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
