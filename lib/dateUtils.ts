@@ -268,6 +268,64 @@ export function isBeforeMalaysianToday(date: Date): boolean {
 }
 
 /**
+ * Normalize time string to canonical HH:mm (24-hour) format for key matching.
+ * e.g. "1:30 PM" -> "13:30", "13:30" -> "13:30", "13:30:00" -> "13:30", "8:00 AM" -> "08:00"
+ */
+export function normalizeTime(timeStr: string): string {
+  if (!timeStr) return "";
+  const trimmed = timeStr.trim();
+
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)$/i);
+  if (ampmMatch) {
+    let hour = parseInt(ampmMatch[1], 10);
+    const min = ampmMatch[2];
+    const ampm = ampmMatch[3].toUpperCase();
+    if (ampm === "PM" && hour < 12) hour += 12;
+    if (ampm === "AM" && hour === 12) hour = 0;
+    return `${hour.toString().padStart(2, "0")}:${min}`;
+  }
+
+  const match24 = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (match24) {
+    const hour = parseInt(match24[1], 10);
+    const min = match24[2];
+    return `${hour.toString().padStart(2, "0")}:${min}`;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Format a time string for display in standard 12-hour format (e.g., "1:30 PM", "8:00 AM").
+ */
+export function formatTimeDisplay(timeStr: string): string {
+  if (!timeStr) return "";
+  const trimmed = timeStr.trim();
+
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)$/i);
+  if (ampmMatch) {
+    let hour = parseInt(ampmMatch[1], 10);
+    const min = ampmMatch[2];
+    const ampm = ampmMatch[3].toUpperCase();
+    hour = hour % 12 || 12;
+    return `${hour}:${min} ${ampm}`;
+  }
+
+  const match24 = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (match24) {
+    let hour = parseInt(match24[1], 10);
+    const min = match24[2];
+    if (!isNaN(hour)) {
+      const ampm = hour >= 12 ? "PM" : "AM";
+      hour = hour % 12 || 12;
+      return `${hour}:${min} ${ampm}`;
+    }
+  }
+
+  return timeStr;
+}
+
+/**
  * Check if a date is after today in Malaysian timezone
  * 
  * @param date - Date to check
@@ -276,3 +334,4 @@ export function isBeforeMalaysianToday(date: Date): boolean {
 export function isAfterMalaysianToday(date: Date): boolean {
   return compareMalaysianDates(date, getMalaysianNow()) > 0;
 }
+
