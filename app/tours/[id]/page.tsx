@@ -216,6 +216,11 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
   const [hasValidated, setHasValidated] = useState(false);
   const [originalSlug, setOriginalSlug] = useState<string>("");
 
+  // Per-timeslot configuration state
+  const [slotConfigs, setSlotConfigs] = useState<Array<{ time: string; minimumPerson?: number; maximumPerson?: number }>>([
+    { time: "08:00", minimumPerson: 1, maximumPerson: 10 }
+  ]);
+
   // Section visibility states
   const [sectionsExpanded, setSectionsExpanded] = useState({
     basicInfo: true,
@@ -304,6 +309,45 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
   const watchDetailsNote = watch("details.note");
   const watchDetailsFaq = watch("details.faq");
 
+  // Keep departureTimes, minimumPerson, and maximumPerson in form state in sync with slotConfigs
+  useEffect(() => {
+    const times = slotConfigs.map((s) => s.time);
+    setValue("departureTimes", times, { shouldValidate: true });
+
+    if (slotConfigs.length > 0) {
+      const minP = Math.min(...slotConfigs.map((s) => Number(s.minimumPerson || 1)));
+      const maxP = Math.max(...slotConfigs.map((s) => Number(s.maximumPerson || 10)));
+      setValue("minimumPerson", minP, { shouldValidate: true });
+      setValue("maximumPerson", maxP, { shouldValidate: true });
+    }
+  }, [slotConfigs, setValue]);
+
+  const addSlotConfig = () => {
+    const minP = watchMinimumPerson || 1;
+    const maxP = watchMaximumPerson || 10;
+    setSlotConfigs((prev) => [
+      ...prev,
+      { time: "08:00", minimumPerson: minP, maximumPerson: maxP },
+    ]);
+  };
+
+  const updateSlotConfig = (
+    index: number,
+    field: "time" | "minimumPerson" | "maximumPerson",
+    value: any
+  ) => {
+    setSlotConfigs((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const removeSlotConfig = (index: number) => {
+    if (slotConfigs.length <= 1) return;
+    setSlotConfigs((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Fetch existing tour data on component mount
   useEffect(() => {
     const fetchTourData = async () => {
@@ -357,6 +401,25 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
 
           // Set form values
           reset(formData);
+
+          // Populate slotConfigs from API response
+          if ((tour as any).slotConfigs && (tour as any).slotConfigs.length > 0) {
+            setSlotConfigs(
+              (tour as any).slotConfigs.map((s: any) => ({
+                time: s.time,
+                minimumPerson: s.minimumPerson ?? tour.minimumPerson ?? 1,
+                maximumPerson: s.maximumPerson ?? tour.maximumPerson ?? 10,
+              }))
+            );
+          } else if (tour.departureTimes && tour.departureTimes.length > 0) {
+            setSlotConfigs(
+              tour.departureTimes.map((time: string) => ({
+                time,
+                minimumPerson: tour.minimumPerson ?? 1,
+                maximumPerson: tour.maximumPerson ?? 10,
+              }))
+            );
+          }
 
           // Set other state values
           setOriginalSlug(tour.slug || "");
@@ -618,6 +681,11 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
       const tourData = {
         ...data,
         packageType: "tour", // Ensure packageType is always "tour"
+        slotConfigs: slotConfigs.map((s) => ({
+          time: s.time,
+          minimumPerson: Number(s.minimumPerson ?? data.minimumPerson ?? 1),
+          maximumPerson: Number(s.maximumPerson ?? data.maximumPerson ?? 10),
+        })),
         details: {
           ...data.details,
           faq: validFaqs,
@@ -1184,62 +1252,7 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                       </select>
                     </div>
 
-                    {/* Show person capacity fields only for non-private tours */}
-                    {watchType !== "private" && (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Minimum Persons *
-                          </label>
-                          <div className="relative">
-                            <input
-                              {...register("minimumPerson", {
-                                valueAsNumber: true,
-                              })}
-                              type="number"
-                              min="1"
-                              step="1"
-                              className={`w-full px-3 py-2 border rounded-md ${
-                                errors.minimumPerson
-                                  ? "border-red-500"
-                                  : "border-gray-300"
-                              }`}
-                              placeholder="1"
-                            />
-                            <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                          </div>
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.minimumPerson?.message}
-                          </p>
-                        </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Maximum Persons *
-                          </label>
-                          <div className="relative">
-                            <input
-                              {...register("maximumPerson", {
-                                valueAsNumber: true,
-                              })}
-                              type="number"
-                              min="1"
-                              step="1"
-                              className={`w-full px-3 py-2 border rounded-md ${
-                                errors.maximumPerson
-                                  ? "border-red-500"
-                                  : "border-gray-300"
-                              }`}
-                              placeholder="10"
-                            />
-                            <FiUsers className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                          </div>
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.maximumPerson?.message}
-                          </p>
-                        </div>
-                      </>
-                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1293,60 +1306,75 @@ export default function EditTourPage({ params }: { params: { id: string } }) {
                   </div>
                 </CollapsibleSection>
 
-                {/* Departure Times */}
+                {/* Departure Times & Per-Slot Capacity */}
                 <CollapsibleSection
-                  title="Departure Times"
+                  title="Departure Times & Timeslot Capacity"
                   isExpanded={sectionsExpanded.departureTimes}
                   onToggle={() => toggleSection("departureTimes")}
                 >
                   <div>
-                    <Controller
-                      name="departureTimes"
-                      control={control}
-                      render={({ field }) => (
-                        <div className="space-y-3">
-                          {field.value.map((time, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center space-x-3"
+                    <p className="text-xs text-gray-500 mb-3">
+                      Set specific departure times along with individual minimum persons and maximum capacity for each timeslot.
+                    </p>
+                    <div className="space-y-3">
+                      {slotConfigs.map((slot, index) => (
+                        <div
+                          key={index}
+                          className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                            <label className="text-xs font-semibold text-gray-600">Time:</label>
+                            <input
+                              type="time"
+                              value={slot.time}
+                              onChange={(e) => updateSlotConfig(index, "time", e.target.value)}
+                              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                            />
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                            <label className="text-xs font-semibold text-gray-600">Min Persons:</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={slot.minimumPerson ?? watchMinimumPerson ?? 1}
+                              onChange={(e) => updateSlotConfig(index, "minimumPerson", parseInt(e.target.value) || 1)}
+                              className="w-20 px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                            />
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                            <label className="text-xs font-semibold text-gray-600">Max Capacity:</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={slot.maximumPerson ?? watchMaximumPerson ?? 10}
+                              onChange={(e) => updateSlotConfig(index, "maximumPerson", parseInt(e.target.value) || 10)}
+                              className="w-20 px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                            />
+                          </div>
+
+                          {slotConfigs.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeSlotConfig(index)}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors sm:ml-auto"
+                              title="Remove timeslot"
                             >
-                              <input
-                                type="time"
-                                value={time}
-                                onChange={(e) => {
-                                  const newTimes = [...field.value];
-                                  newTimes[index] = e.target.value;
-                                  field.onChange(newTimes);
-                                }}
-                                className="px-3 py-2 border border-gray-300 rounded-md"
-                              />
-                              {field.value.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newTimes = [...field.value];
-                                    newTimes.splice(index, 1);
-                                    field.onChange(newTimes);
-                                  }}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <FiX />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              field.onChange([...field.value, "08:00"])
-                            }
-                            className="text-primary hover:text-primary-dark flex items-center text-sm"
-                          >
-                            <FiPlus className="mr-1" /> Add another time
-                          </button>
+                              <FiX size={18} />
+                            </button>
+                          )}
                         </div>
-                      )}
-                    />
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={addSlotConfig}
+                        className="text-primary hover:text-primary-dark flex items-center text-sm font-medium pt-1"
+                      >
+                        <FiPlus className="mr-1" /> Add another timeslot
+                      </button>
+                    </div>
                     <p className="text-xs text-red-500 mt-1">
                       {errors.departureTimes?.message}
                     </p>

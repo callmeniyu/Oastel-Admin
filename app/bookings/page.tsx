@@ -23,6 +23,8 @@ import {
   getDayOfWeekMYT,
   parseFlexibleDate,
   formatMalaysianDateForDisplay,
+  normalizeTime,
+  formatTimeDisplay,
 } from "@/lib/dateUtils";
 
 type Package = {
@@ -197,6 +199,7 @@ export default function BookingsPage() {
   const processBookingsIntoPackages = (
     bookings: any[],
     date: Date,
+    targetType?: "tour" | "transfer",
   ): Package[] => {
     const dateStr = formatDateAsMYT(date);
     const safeBookings = Array.isArray(bookings) ? bookings : [];
@@ -224,14 +227,23 @@ export default function BookingsPage() {
       return bookingDateStr === dateStr;
     });
 
-    // Group bookings by package ID and time
+    // Group bookings by package ID and normalized time
     const bookingMap = new Map<string, any>();
     dateBookings.forEach((booking) => {
       if (!booking.packageId || !booking.packageId._id) return;
-      const key = `${booking.packageId._id}-${booking.time}`;
+      const normTime = normalizeTime(booking.time);
+      const key = `${booking.packageId._id}-${normTime}`;
       if (!bookingMap.has(key)) {
-        // Determine maxSlots: prefer vehicle.units for private transfers if available
-        let maxSlots = booking.packageId?.maximumPerson || 15;
+        // Determine maxSlots: prefer slotConfigs, then vehicle.units for private transfers, then maximumPerson
+        let maxSlots = 15;
+        const slotCfg = booking.packageId?.slotConfigs?.find(
+          (sc: any) => normalizeTime(sc.time) === normTime,
+        );
+        if (slotCfg && typeof slotCfg.maximumPerson === "number") {
+          maxSlots = slotCfg.maximumPerson;
+        } else if (booking.packageId?.maximumPerson) {
+          maxSlots = booking.packageId.maximumPerson;
+        }
         try {
           const isPrivate =
             booking.packageId?.type === "Private" ||
@@ -257,7 +269,7 @@ export default function BookingsPage() {
           startTime: booking.time,
           price: `RM ${booking.packageId?.newPrice || booking.total}`,
           isAvailable: true, // Default to available, will be updated with actual slot data
-          bookings: [], // <-- Fix: always initialize bookings array
+          bookings: [], // Always initialize bookings array
           vehicle: booking.packageId?.vehicle || undefined,
           transferType: booking.packageId?.type || undefined,
         });
@@ -271,70 +283,103 @@ export default function BookingsPage() {
       packageData.bookings.push(booking);
     });
 
-    // Merge with all available packages for the selected tab
+    // Merge with all available packages for the selected type or tab
+    const requestedType = targetType || activeTab.slice(0, -1);
     const availablePackages = Array.isArray(packages)
       ? packages.filter(
-          (pkg) => pkg && pkg.packageType === activeTab.slice(0, -1),
+          (pkg) => pkg && pkg.packageType === requestedType,
         )
       : [];
 
-    // For each available package, ensure it appears at least once (for each time slot if applicable)
+    // For each available package, ensure EVERY configured time slot appears
     const mergedPackages: Package[] = [];
     availablePackages.forEach((pkg) => {
-      // Find all bookings for this package
+      const configuredTimes: string[] = pkg.departureTimes || pkg.times || [];
       const matchingBookings = dateBookings.filter(
         (b) => b.packageId?._id === pkg._id,
       );
-      // If there are bookings, use their time slots
-      if (matchingBookings.length > 0) {
-        // For each time slot with bookings, use the bookingMap entry
-        const timeSlots = Array.from(
-          new Set(matchingBookings.map((b) => b.time)),
-        );
-        timeSlots.forEach((time) => {
-          const key = `${pkg._id}-${time}`;
-          if (bookingMap.has(key)) {
-            mergedPackages.push(bookingMap.get(key));
-          }
-        });
-      } else {
-        // No bookings for this package on this date, show as available
-        let maxSlots = pkg.maximumPerson || 15;
-        try {
-          const isPrivate = pkg.type === "Private" || pkg.type === "private";
-          if (isPrivate && pkg.vehicle && Array.isArray(vehicles)) {
-            const v = vehicles.find((x) => x.name === pkg.vehicle);
-            if (v && typeof v.units === "number") maxSlots = v.units;
-          }
-        } catch (err) {
-          // ignore
-        }
+      const bookedTimes: string[] = matchingBookings.map((b) => b.time);
 
-        mergedPackages.push({
-          id: pkg._id,
-          title: pkg.title || "Package",
-          type: pkg.packageType as "tour" | "transfer",
-          duration:
-            pkg.period?.toLowerCase() ||
-            (pkg.packageType === "tour" ? "half-day" : undefined),
-          currentBookings: 0,
-          maxSlots,
-          startTime: pkg.departureTimes?.[0] || pkg.times?.[0] || "Multiple",
-          price: `RM ${pkg.newPrice || 0}`,
-          isAvailable: true, // Default to available
-          vehicle: pkg.vehicle || undefined,
-          transferType: pkg.type || undefined,
-        });
+      // Collect unique time slots mapped to normalized key
+      const timeslotMap = new Map<string, string>();
+      configuredTimes.forEach((t) => {
+        if (t) {
+          const norm = normalizeTime(t);
+          if (!timeslotMap.has(norm)) {
+            timeslotMap.set(norm, t);
+          }
+        }
+      });
+      bookedTimes.forEach((t) => {
+        if (t) {
+          const norm = normalizeTime(t);
+          if (!timeslotMap.has(norm)) {
+            timeslotMap.set(norm, t);
+          }
+        }
+      });
+
+      if (timeslotMap.size === 0) {
+        timeslotMap.set("08:00", "08:00 AM");
       }
+
+      timeslotMap.forEach((displayTime, normTime) => {
+        const key = `${pkg._id}-${normTime}`;
+        if (bookingMap.has(key)) {
+          mergedPackages.push(bookingMap.get(key));
+        } else {
+          let maxSlots = 15;
+          const slotCfg = pkg.slotConfigs?.find(
+            (sc: any) => normalizeTime(sc.time) === normTime,
+          );
+          if (slotCfg && typeof slotCfg.maximumPerson === "number") {
+            maxSlots = slotCfg.maximumPerson;
+          } else if (pkg.maximumPerson) {
+            maxSlots = pkg.maximumPerson;
+          }
+          try {
+            const isPrivate = pkg.type === "Private" || pkg.type === "private";
+            if (isPrivate && pkg.vehicle && Array.isArray(vehicles)) {
+              const v = vehicles.find((x) => x.name === pkg.vehicle);
+              if (v && typeof v.units === "number") maxSlots = v.units;
+            }
+          } catch (err) {
+            // ignore
+          }
+
+          mergedPackages.push({
+            id: pkg._id,
+            title: pkg.title || "Package",
+            type: pkg.packageType as "tour" | "transfer",
+            duration:
+              pkg.period?.toLowerCase() ||
+              (pkg.packageType === "tour" ? "half-day" : undefined),
+            currentBookings: 0,
+            maxSlots,
+            startTime: displayTime,
+            price: `RM ${pkg.newPrice || 0}`,
+            isAvailable: true,
+            vehicle: pkg.vehicle || undefined,
+            transferType: pkg.type || undefined,
+          });
+        }
+      });
     });
 
     return mergedPackages;
   };
 
-  const selectedDatePackages = processBookingsIntoPackages(
+  const tours = processBookingsIntoPackages(
     realBookings,
     selectedDate,
+    "tour",
   );
+  const transfers = processBookingsIntoPackages(
+    realBookings,
+    selectedDate,
+    "transfer",
+  );
+  const selectedDatePackages = activeTab === "tours" ? tours : transfers;
 
   // Compute tour and transfer counts for the selected date independent of the active tab
   function bookingDateToMalaysianYYYYMMDD(dateInput: any): string {
@@ -386,15 +431,6 @@ export default function BookingsPage() {
     return { tourCount: tCount, transferCount: trCount };
   })();
 
-  // Calculate counts for both tours and transfers from all bookings (always for selectedDate)
-  const allPackagesForSelectedDate = processBookingsIntoPackages(
-    realBookings,
-    selectedDate,
-  );
-  const tours = allPackagesForSelectedDate.filter((p) => p.type === "tour");
-  const transfers = allPackagesForSelectedDate.filter(
-    (p) => p.type === "transfer",
-  );
 
   // Generate days for the current month view using Malaysian timezone
   const { year: currentYear, month: currentMonth } =
@@ -817,7 +853,7 @@ function PackageCard({
           <div className="flex items-center gap-4 text-sm text-light">
             <div className="flex items-center gap-1">
               <FiClock className="text-xs" />
-              <span>{pkg.startTime}</span>
+              <span>{formatTimeDisplay(pkg.startTime)}</span>
             </div>
             <span className="font-medium text-primary">{pkg.price}</span>
           </div>

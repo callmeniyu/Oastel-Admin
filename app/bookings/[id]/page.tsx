@@ -23,6 +23,7 @@ import {
 } from "react-icons/fi";
 import Confirmation from "@/components/ui/Confirmation";
 import { toast } from "react-hot-toast";
+import { formatTimeDisplay } from "@/lib/dateUtils";
 
 interface Customer {
   _id: string;
@@ -427,7 +428,7 @@ export default function PackageDetailsPage() {
                 day: "numeric",
                 timeZone: "Asia/Kuala_Lumpur", // Force Malaysia timezone
               })}{" "}
-              at {time}
+              at {formatTimeDisplay(time || "")}
             </p>
           </div>
         </div>
@@ -548,7 +549,7 @@ export default function PackageDetailsPage() {
                               }
                             />
                             <h3 className="font-semibold text-dark text-lg">
-                              {slot.time}
+                              {formatTimeDisplay(slot.time)}
                             </h3>
                           </div>
                           <div className="mt-1 flex items-center gap-2">
