@@ -39,6 +39,7 @@ type Package = {
   isAvailable: boolean; // Slot availability status
   vehicle?: string; // Vehicle name for private transfers
   transferType?: string; // Transfer type (Private, Van, etc.)
+  image?: string;
 };
 
 export default function BookingsPage() {
@@ -291,6 +292,7 @@ export default function BookingsPage() {
           bookings: [], // Always initialize bookings array
           vehicle: booking.packageId?.vehicle || undefined,
           transferType: booking.packageId?.type || undefined,
+          image: booking.packageId?.image || undefined,
         });
       }
       const packageData = bookingMap.get(key);
@@ -378,10 +380,14 @@ export default function BookingsPage() {
             isAvailable: true,
             vehicle: pkg.vehicle || undefined,
             transferType: pkg.type || undefined,
+            image: pkg.image || undefined,
           });
         }
       });
     });
+
+    // Sort packages with most bookings on top descending down
+    mergedPackages.sort((a, b) => b.currentBookings - a.currentBookings);
 
     return mergedPackages;
   };
@@ -819,55 +825,26 @@ function PackageCard({
     return "bg-green-50 border-green-200";
   };
 
-  const getDurationBadge = () => {
-    if (pkg.type === "tour" && pkg.duration) {
-      return (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            pkg.duration === "full-day"
-              ? "bg-blue-100 text-blue-800"
-              : "bg-purple-100 text-purple-800"
-          }`}
-        >
-          {pkg.duration === "full-day" ? "Full Day" : "Half Day"}
-        </span>
-      );
-    }
-    return null;
-  };
-
-  const getPrivateBadge = () => {
-    try {
-      const t = pkg.transferType || pkg.type;
-      if (!t) return null;
-      if (typeof t === "string" && t.toLowerCase() === "private") {
-        return (
-          <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-            Private
-          </span>
-        );
-      }
-    } catch (err) {
-      return null;
-    }
-    return null;
-  };
-
-  // Status display is now handled by the badge, no toggle functionality in card
-
   return (
     <div
       className={`p-4 rounded-lg border ${getAvailabilityBg()} cursor-pointer hover:shadow-md transition-shadow`}
       onClick={handlePackageClick}
     >
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-dark">{pkg.title}</h3>
-            {getDurationBadge()}
-            {getPrivateBadge()}
+      <div className="flex items-center gap-3 mb-3">
+        {pkg.image ? (
+          <img
+            src={pkg.image}
+            alt={pkg.title}
+            className="w-14 h-14 rounded-md object-cover flex-shrink-0 border border-gray-200"
+          />
+        ) : (
+          <div className="w-14 h-14 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-400 text-xs font-medium">
+            No Image
           </div>
-          <div className="flex items-center gap-4 text-sm text-light">
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-dark truncate">{pkg.title}</h3>
+          <div className="flex items-center gap-4 text-sm text-light mt-1">
             <div className="flex items-center gap-1">
               <FiClock className="text-xs" />
               <span>{formatTimeDisplay(pkg.startTime)}</span>
@@ -875,7 +852,6 @@ function PackageCard({
             <span className="font-medium text-primary">{pkg.price}</span>
           </div>
         </div>
-        {/* Removed the 'Available'/'Sold Out' tag from the top right */}
       </div>
 
       {/* Booking Status */}
