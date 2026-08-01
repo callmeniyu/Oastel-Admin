@@ -93,13 +93,16 @@ export default function BookingsPage() {
       const toursData = await toursResponse.json();
       const transfersData = await transfersResponse.json();
 
+      const rawTours = toursData.tours || toursData.data || [];
+      const rawTransfers = transfersData.transfers || transfersData.data || [];
+
       // Ensure server responses are normalized: tours -> packageType 'tour', transfers -> 'transfer'
       const allPackages = [
-        ...(toursData.tours || []).map((tour: any) => ({
+        ...(Array.isArray(rawTours) ? rawTours : []).map((tour: any) => ({
           ...tour,
           packageType: "tour",
         })),
-        ...(transfersData.transfers || []).map((transfer: any) => ({
+        ...(Array.isArray(rawTransfers) ? rawTransfers : []).map((transfer: any) => ({
           ...transfer,
           packageType: "transfer",
         })),
@@ -227,10 +230,26 @@ export default function BookingsPage() {
       return bookingDateStr === dateStr;
     });
 
+    // Merge with all available packages for the selected type or tab
+    const requestedType = targetType || (activeTab.slice(0, -1) as "tour" | "transfer");
+
     // Group bookings by package ID and normalized time
     const bookingMap = new Map<string, any>();
     dateBookings.forEach((booking) => {
       if (!booking.packageId || !booking.packageId._id) return;
+
+      // Ensure booking matches requestedType
+      const bPkgType = (
+        booking.packageType ||
+        booking.packageId?.packageType ||
+        ""
+      )
+        .toString()
+        .toLowerCase();
+      if (requestedType && bPkgType && bPkgType !== requestedType) {
+        return;
+      }
+
       const normTime = normalizeTime(booking.time);
       const key = `${booking.packageId._id}-${normTime}`;
       if (!bookingMap.has(key)) {
@@ -260,10 +279,10 @@ export default function BookingsPage() {
         bookingMap.set(key, {
           id: booking.packageId._id,
           title: booking.packageId?.title || `${booking.packageType} Package`,
-          type: booking.packageType,
+          type: booking.packageType || booking.packageId?.packageType || requestedType,
           duration:
             booking.packageId?.period?.toLowerCase() ||
-            (booking.packageType === "tour" ? "half-day" : undefined),
+            ((booking.packageType || booking.packageId?.packageType) === "tour" ? "half-day" : undefined),
           currentBookings: 0,
           maxSlots,
           startTime: booking.time,
@@ -283,8 +302,6 @@ export default function BookingsPage() {
       packageData.bookings.push(booking);
     });
 
-    // Merge with all available packages for the selected type or tab
-    const requestedType = targetType || activeTab.slice(0, -1);
     const availablePackages = Array.isArray(packages)
       ? packages.filter(
           (pkg) => pkg && pkg.packageType === requestedType,
@@ -417,10 +434,10 @@ export default function BookingsPage() {
         trCount += increment;
         continue;
       }
-      // Fallback: check packageId.type or packageId.packageType
+      // Fallback: check packageId.packageType or packageId.type
       const pkgType = (
         (booking.packageId &&
-          (booking.packageId.type || booking.packageId.packageType)) ||
+          (booking.packageId.packageType || booking.packageId.type)) ||
         ""
       )
         .toString()
@@ -657,7 +674,7 @@ export default function BookingsPage() {
                       <div className="space-y-4">
                         {tours.map((pkg) => (
                           <PackageCard
-                            key={pkg.id}
+                            key={`${pkg.id}-${pkg.startTime}`}
                             package={pkg}
                             selectedDate={selectedDate}
                             formatDate={formatDate}
@@ -677,7 +694,7 @@ export default function BookingsPage() {
                     <div className="space-y-4">
                       {transfers.map((pkg) => (
                         <PackageCard
-                          key={pkg.id}
+                          key={`${pkg.id}-${pkg.startTime}`}
                           package={pkg}
                           selectedDate={selectedDate}
                           formatDate={formatDate}
