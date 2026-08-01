@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import AdminHeader from "@/components/admin/AdminHeader";
 import MobileNav from "@/components/admin/MobileNav";
 import DataTable from "@/components/admin/DataTable";
@@ -27,6 +27,7 @@ interface TourTableData {
 
 export default function ToursPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [tours, setTours] = useState<TourTableData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -316,6 +317,30 @@ export default function ToursPage() {
       <AdminHeader />
 
       <main className="p-4">
+        {/* Packages Sub-Navigation */}
+        <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200 mb-6">
+          <Link
+            href="/tours"
+            className={`flex-1 py-2 px-4 text-center text-sm font-medium rounded-md transition-colors ${
+              pathname === "/tours" || pathname.startsWith("/tours")
+                ? "bg-primary text-white shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            Tours
+          </Link>
+          <Link
+            href="/transfers"
+            className={`flex-1 py-2 px-4 text-center text-sm font-medium rounded-md transition-colors ${
+              pathname.startsWith("/transfers")
+                ? "bg-primary text-white shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            Transfers
+          </Link>
+        </div>
+
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-dark">Tours</h1>
