@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -28,6 +31,7 @@ export async function GET(request: NextRequest) {
           headers: {
             "Content-Type": "application/json",
           },
+          cache: "no-store",
         }
       );
 
@@ -67,6 +71,7 @@ export async function GET(request: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
+        cache: "no-store",
       }
     );
 

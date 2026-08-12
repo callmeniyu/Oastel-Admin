@@ -176,7 +176,13 @@ export default function BookingsPage() {
   const fetchTimeSlotsForDate = async (date: Date) => {
     const dateStr = formatDateAsMYT(date);
     try {
-      const res = await fetch(`/api/timeslots?date=${dateStr}`);
+      const res = await fetch(`/api/timeslots?date=${dateStr}&_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+        },
+      });
       if (res.ok) {
         const result = await res.json();
         if (result.success && Array.isArray(result.data)) {
@@ -247,6 +253,8 @@ export default function BookingsPage() {
         toast.error(data.error || "Failed to update availability");
       } else {
         toast.success(`Slot successfully ${newAvailable ? "activated" : "deactivated"}`);
+        // Re-sync with server state
+        fetchTimeSlotsForDate(selectedDate);
       }
     } catch (error) {
       // Rollback
@@ -308,6 +316,8 @@ export default function BookingsPage() {
         toast.error(data.error || "Failed to update minimum person count");
       } else {
         toast.success("Minimum person count updated successfully");
+        // Re-sync with server state
+        fetchTimeSlotsForDate(selectedDate);
       }
     } catch (error) {
       // Rollback
