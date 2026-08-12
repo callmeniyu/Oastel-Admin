@@ -8,9 +8,14 @@ import {
   FiClock,
   FiUsers,
   FiRefreshCw,
+  FiUser,
+  FiSave,
+  FiX,
+  FiEdit,
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
-import StatusToggle from "@/components/admin/StatusToggle";
+import Confirmation from "@/components/ui/Confirmation";
+import toast from "react-hot-toast";
 import {
   formatDateAsMYT,
   parseDateStringAsMYT,
@@ -37,6 +42,7 @@ type Package = {
   startTime: string;
   price: string;
   isAvailable: boolean; // Slot availability status
+  minimumPerson: number;
   vehicle?: string; // Vehicle name for private transfers
   transferType?: string; // Transfer type (Private, Van, etc.)
   image?: string;
@@ -53,17 +59,22 @@ export default function BookingsPage() {
   const [isLoadingPackages, setIsLoadingPackages] = useState(false);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [timeSlotsMap, setTimeSlotsMap] = useState<
+    Record<string, { isAvailable: boolean; minimumPerson: number }>
+  >({});
   const router = useRouter();
 
   const handleRefresh = async () => {
     fetchRealBookings();
     fetchPackages();
+    fetchTimeSlotsForDate(selectedDate);
   };
 
   useEffect(() => {
     fetchRealBookings();
     fetchPackages();
     fetchVehicles();
+    fetchTimeSlotsForDate(selectedDate);
 
     // Set up auto-refresh for booking counts every 30 seconds
     const autoRefreshInterval = setInterval(() => {
@@ -81,6 +92,7 @@ export default function BookingsPage() {
 
   useEffect(() => {
     fetchRealBookings();
+    fetchTimeSlotsForDate(selectedDate);
   }, [selectedDate]);
 
   const fetchPackages = async () => {
@@ -161,41 +173,153 @@ export default function BookingsPage() {
     }
   };
 
-  // Toggle slot availability for a specific package, date, and time
-  const toggleSlotStatus = async (
-    packageId: string,
-    packageType: "tour" | "transfer",
-    date: string,
-    time: string,
-    currentStatus: "active" | "sold",
-  ) => {
+  const fetchTimeSlotsForDate = async (date: Date) => {
+    const dateStr = formatDateAsMYT(date);
     try {
-      const newStatus = currentStatus === "active" ? false : true; // isAvailable boolean
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/timeslots/toggle-availability`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            packageId,
-            packageType,
-            date,
-            time,
-            isAvailable: newStatus,
-          }),
-        },
-      );
-
-      const data = await response.json();
-      if (data.success) {
-        // Refresh bookings data to reflect the change
-        await fetchRealBookings();
-      } else {
-        console.error("Failed to toggle slot status:", data.error);
+      const res = await fetch(`/api/timeslots?date=${dateStr}`);
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && Array.isArray(result.data)) {
+          const map: Record<string, { isAvailable: boolean; minimumPerson: number }> = {};
+          result.data.forEach((pkgSlots: any) => {
+            const pkgId = pkgSlots.packageId;
+            if (pkgId && Array.isArray(pkgSlots.slots)) {
+              pkgSlots.slots.forEach((slot: any) => {
+                const normTime = normalizeTime(slot.time);
+                map[`${pkgId}_${normTime}`] = {
+                  isAvailable: slot.isAvailable,
+                  minimumPerson: typeof slot.currentMinimum === "number" ? slot.currentMinimum : slot.minimumPerson
+                };
+              });
+            }
+          });
+          setTimeSlotsMap(map);
+        }
       }
     } catch (error) {
+      console.error("Error fetching timeslots for date:", error);
+    }
+  };
+
+  const toggleSlotAvailability = async (
+    packageId: string,
+    packageType: "tour" | "transfer",
+    time: string,
+    currentIsAvailable: boolean
+  ) => {
+    const normTime = normalizeTime(time);
+    const dateStr = formatDateAsMYT(selectedDate);
+    const slotMapKey = `${packageId}_${normTime}`;
+    const newAvailable = !currentIsAvailable;
+
+    // Optimistic Update
+    setTimeSlotsMap((prev) => ({
+      ...prev,
+      [slotMapKey]: {
+        isAvailable: newAvailable,
+        minimumPerson: prev[slotMapKey]?.minimumPerson ?? 1,
+      },
+    }));
+
+    try {
+      const response = await fetch("/api/timeslots/toggle-availability", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageId,
+          packageType,
+          date: dateStr,
+          time: normTime,
+          isAvailable: newAvailable,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        // Rollback
+        setTimeSlotsMap((prev) => ({
+          ...prev,
+          [slotMapKey]: {
+            isAvailable: currentIsAvailable,
+            minimumPerson: prev[slotMapKey]?.minimumPerson ?? 1,
+          },
+        }));
+        toast.error(data.error || "Failed to update availability");
+      } else {
+        toast.success(`Slot successfully ${newAvailable ? "activated" : "deactivated"}`);
+      }
+    } catch (error) {
+      // Rollback
+      setTimeSlotsMap((prev) => ({
+        ...prev,
+        [slotMapKey]: {
+          isAvailable: currentIsAvailable,
+          minimumPerson: prev[slotMapKey]?.minimumPerson ?? 1,
+        },
+      }));
       console.error("Failed to toggle slot status", error);
+      toast.error("An error occurred while updating timeslot");
+    }
+  };
+
+  const updateMinimumPerson = async (
+    packageId: string,
+    packageType: "tour" | "transfer",
+    time: string,
+    newMinimumPerson: number
+  ) => {
+    const normTime = normalizeTime(time);
+    const dateStr = formatDateAsMYT(selectedDate);
+    const slotMapKey = `${packageId}_${normTime}`;
+    const originalMin = timeSlotsMap[slotMapKey]?.minimumPerson ?? 1;
+
+    // Optimistic Update
+    setTimeSlotsMap((prev) => ({
+      ...prev,
+      [slotMapKey]: {
+        isAvailable: prev[slotMapKey]?.isAvailable ?? true,
+        minimumPerson: newMinimumPerson,
+      },
+    }));
+
+    try {
+      const response = await fetch("/api/timeslots/minimum-person", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageId,
+          packageType,
+          date: dateStr,
+          time: normTime,
+          minimumPerson: newMinimumPerson,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        // Rollback
+        setTimeSlotsMap((prev) => ({
+          ...prev,
+          [slotMapKey]: {
+            isAvailable: prev[slotMapKey]?.isAvailable ?? true,
+            minimumPerson: originalMin,
+          },
+        }));
+        toast.error(data.error || "Failed to update minimum person count");
+      } else {
+        toast.success("Minimum person count updated successfully");
+      }
+    } catch (error) {
+      // Rollback
+      setTimeSlotsMap((prev) => ({
+        ...prev,
+        [slotMapKey]: {
+          isAvailable: prev[slotMapKey]?.isAvailable ?? true,
+          minimumPerson: originalMin,
+        },
+      }));
+      console.error("Failed to update minimum person count", error);
+      toast.error("An error occurred while updating minimum person count");
     }
   };
 
@@ -289,6 +413,7 @@ export default function BookingsPage() {
           startTime: booking.time,
           price: `RM ${booking.packageId?.newPrice || booking.total}`,
           isAvailable: true, // Default to available, will be updated with actual slot data
+          minimumPerson: 1,
           bookings: [], // Always initialize bookings array
           vehicle: booking.packageId?.vehicle || undefined,
           transferType: booking.packageId?.type || undefined,
@@ -344,13 +469,24 @@ export default function BookingsPage() {
 
       timeslotMap.forEach((displayTime, normTime) => {
         const key = `${pkg._id}-${normTime}`;
+        const slotMapKey = `${pkg._id}_${normTime}`;
+        const slotData = timeSlotsMap[slotMapKey];
+
+        const slotCfg = pkg.slotConfigs?.find(
+          (sc: any) => normalizeTime(sc.time) === normTime
+        );
+        const defaultMinPerson = slotCfg?.minimumPerson || pkg.minimumPerson || 1;
+
+        const isAvailable = slotData ? slotData.isAvailable : true;
+        const minimumPerson = slotData ? slotData.minimumPerson : defaultMinPerson;
+
         if (bookingMap.has(key)) {
-          mergedPackages.push(bookingMap.get(key));
+          const bookingPkg = bookingMap.get(key);
+          bookingPkg.isAvailable = isAvailable;
+          bookingPkg.minimumPerson = minimumPerson;
+          mergedPackages.push(bookingPkg);
         } else {
           let maxSlots = 15;
-          const slotCfg = pkg.slotConfigs?.find(
-            (sc: any) => normalizeTime(sc.time) === normTime,
-          );
           if (slotCfg && typeof slotCfg.maximumPerson === "number") {
             maxSlots = slotCfg.maximumPerson;
           } else if (pkg.maximumPerson) {
@@ -377,7 +513,8 @@ export default function BookingsPage() {
             maxSlots,
             startTime: displayTime,
             price: `RM ${pkg.newPrice || 0}`,
-            isAvailable: true,
+            isAvailable,
+            minimumPerson,
             vehicle: pkg.vehicle || undefined,
             transferType: pkg.type || undefined,
             image: pkg.image || undefined,
@@ -454,7 +591,6 @@ export default function BookingsPage() {
     return { tourCount: tCount, transferCount: trCount };
   })();
 
-
   // Generate days for the current month view using Malaysian timezone
   const { year: currentYear, month: currentMonth } =
     getMalaysianDateComponents(currentDate);
@@ -491,22 +627,8 @@ export default function BookingsPage() {
     return formatDateAsMYT(date);
   }
 
-  function formatDateFromString(dateString: string): string {
-    const date = parseDateStringAsMYT(dateString);
-    return formatDateAsMYT(date);
-  }
-
-  function getNextDay(date: Date, days = 1): Date {
-    return addDaysMYT(date, days);
-  }
-
   function isSameDay(date1: Date, date2: Date): boolean {
     return isSameMalaysianDate(date1, date2);
-  }
-
-  function isBeforeToday(date: Date): boolean {
-    // Admin can view all days - no date restrictions
-    return false;
   }
 
   function renderDay(day: number) {
@@ -684,7 +806,8 @@ export default function BookingsPage() {
                             package={pkg}
                             selectedDate={selectedDate}
                             formatDate={formatDate}
-                            toggleSlotStatus={toggleSlotStatus}
+                            toggleSlotAvailability={toggleSlotAvailability}
+                            updateMinimumPerson={updateMinimumPerson}
                             isLoadingBookings={isLoadingBookings}
                             vehicles={vehicles}
                           />
@@ -704,7 +827,8 @@ export default function BookingsPage() {
                           package={pkg}
                           selectedDate={selectedDate}
                           formatDate={formatDate}
-                          toggleSlotStatus={toggleSlotStatus}
+                          toggleSlotAvailability={toggleSlotAvailability}
+                          updateMinimumPerson={updateMinimumPerson}
                           isLoadingBookings={isLoadingBookings}
                           vehicles={vehicles}
                         />
@@ -755,24 +879,45 @@ function PackageCard({
   package: pkg,
   selectedDate,
   formatDate,
-  toggleSlotStatus,
+  toggleSlotAvailability,
+  updateMinimumPerson,
   isLoadingBookings,
   vehicles,
 }: {
   package: Package;
   selectedDate: Date;
   formatDate: (date: Date) => string;
-  toggleSlotStatus: (
+  toggleSlotAvailability: (
     packageId: string,
     packageType: "tour" | "transfer",
-    date: string,
     time: string,
-    currentStatus: "active" | "sold",
+    currentIsAvailable: boolean
+  ) => Promise<void>;
+  updateMinimumPerson: (
+    packageId: string,
+    packageType: "tour" | "transfer",
+    time: string,
+    newMinimumPerson: number
   ) => Promise<void>;
   isLoadingBookings: boolean;
   vehicles: any[];
 }) {
   const router = useRouter();
+
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
+  const [showEditMinPersonModal, setShowEditMinPersonModal] = useState(false);
+  const [editingMinPersonValue, setEditingMinPersonValue] = useState(
+    pkg.minimumPerson.toString()
+  );
+  const [pendingMinPersonValue, setPendingMinPersonValue] = useState<number | null>(
+    null
+  );
+  const [showMinPersonConfirm, setShowMinPersonConfirm] = useState(false);
+
+  // Sync internal edit value when pkg.minimumPerson changes
+  useEffect(() => {
+    setEditingMinPersonValue(pkg.minimumPerson.toString());
+  }, [pkg.minimumPerson]);
 
   // Calculate vehicle availability for private transfers
   const getVehicleAvailability = () => {
@@ -818,11 +963,11 @@ function PackageCard({
   };
 
   const getAvailabilityBg = () => {
-    if (!pkg.isAvailable) return "bg-red-50 border-red-200";
+    if (!pkg.isAvailable) return "bg-red-50 border-red-300";
     const percentage = (pkg.currentBookings / availability.total) * 100;
     if (percentage >= 90) return "bg-red-50 border-red-200";
     if (percentage >= 70) return "bg-yellow-50 border-yellow-200";
-    return "bg-green-50 border-green-200";
+    return "bg-green-50/70 border-green-200";
   };
 
   return (
@@ -854,37 +999,256 @@ function PackageCard({
         </div>
       </div>
 
-      {/* Booking Status */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <FiUsers className="text-light" />
-          <span className="text-sm text-light">Bookings:</span>
-          <span className={`text-sm font-medium ${getAvailabilityColor()}`}>
-            {pkg.currentBookings} / {availability.total}
-          </span>
-        </div>
-
-        <div className="text-right">
-          <div className="text-xs text-light">
-            {availability.available}{" "}
-            {availability.isVehicleDisplay ? "vehicles" : "slots"} available
+      {/* Booking Status & Slot Control Layout */}
+      <div
+        className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-3 items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Left Side: Bookings Count & ProgressBar */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-xs text-light">
+            <span className="flex items-center gap-1.5">
+              <FiUsers size={14} className="text-gray-400" />
+              <span className="font-semibold text-dark">
+                {pkg.currentBookings}
+              </span>{" "}
+              / <span className="font-semibold">{availability.total}</span>{" "}
+              Booked
+            </span>
+            <span className="font-semibold text-gray-500">
+              {availability.available}{" "}
+              {availability.isVehicleDisplay ? "veh" : "slots"} left
+            </span>
           </div>
-          <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
+          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-gray-200/50">
             <div
-              className={`h-2 rounded-full ${
-                (pkg.currentBookings / availability.total) * 100 >= 90
+              className={`h-full rounded-full transition-all duration-300 ${
+                !pkg.isAvailable
                   ? "bg-red-500"
-                  : (pkg.currentBookings / availability.total) * 100 >= 70
-                    ? "bg-yellow-500"
-                    : "bg-green-500"
+                  : (pkg.currentBookings / availability.total) * 100 >= 90
+                    ? "bg-red-500"
+                    : (pkg.currentBookings / availability.total) * 100 >= 70
+                      ? "bg-yellow-500"
+                      : "bg-green-500"
               }`}
               style={{
-                width: `${(pkg.currentBookings / availability.total) * 100}%`,
+                width: `${Math.min(
+                  100,
+                  (pkg.currentBookings / availability.total) * 100,
+                )}%`,
               }}
-            ></div>
+            />
+          </div>
+        </div>
+
+        {/* Right Side: Status Toggle & Minimum Person Info */}
+        <div className="flex items-center justify-between sm:justify-end gap-4">
+          {/* Toggle Switch with Active/Disabled label */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowToggleConfirm(true);
+              }}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                pkg.isAvailable ? "bg-green-500" : "bg-gray-300"
+              }`}
+              aria-label={
+                pkg.isAvailable ? "Deactivate timeslot" : "Activate timeslot"
+              }
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  pkg.isAvailable ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+            <span
+              className={`text-xs font-semibold ${
+                pkg.isAvailable ? "text-green-600" : "text-red-500"
+              }`}
+            >
+              {pkg.isAvailable ? "Active" : "Disabled"}
+            </span>
+          </div>
+
+          {/* Minimum Person Display & Edit Button */}
+          <div className="flex items-center gap-1.5 bg-gray-50 p-1.5 px-2.5 rounded-lg border border-gray-200 text-xs">
+            <FiUser className="text-gray-400" />
+            <span className="text-gray-500 font-medium">Min:</span>
+            <span className="font-bold text-dark">{pkg.minimumPerson}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingMinPersonValue(pkg.minimumPerson.toString());
+                setShowEditMinPersonModal(true);
+              }}
+              className="ml-1 px-2 py-0.5 text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded transition-colors font-semibold"
+            >
+              Edit
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Confirmation & Edit Modals */}
+      <Confirmation
+        isOpen={showToggleConfirm}
+        onClose={() => setShowToggleConfirm(false)}
+        onConfirm={() => {
+          toggleSlotAvailability(
+            pkg.id,
+            pkg.type,
+            pkg.startTime,
+            pkg.isAvailable,
+          );
+          setShowToggleConfirm(false);
+        }}
+        title={pkg.isAvailable ? "Deactivate Time Slot" : "Activate Time Slot"}
+        message={
+          <div>
+            <p>
+              Are you sure you want to{" "}
+              <span className="font-bold underline">
+                {pkg.isAvailable ? "DEACTIVATE" : "ACTIVATE"}
+              </span>{" "}
+              the{" "}
+              <span className="font-semibold">
+                {formatTimeDisplay(pkg.startTime)}
+              </span>{" "}
+              time slot for <span className="font-semibold">"{pkg.title}"</span>{" "}
+              on{" "}
+              <span className="font-semibold">
+                {formatMalaysianDateForDisplay(selectedDate, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+              ?
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              {pkg.isAvailable
+                ? "Deactivating this slot will prevent customers from booking this time slot."
+                : "Activating this slot will allow customers to book this time slot."}
+            </p>
+          </div>
+        }
+        confirmText={pkg.isAvailable ? "Deactivate" : "Activate"}
+        cancelText="Cancel"
+        variant={pkg.isAvailable ? "danger" : "default"}
+      />
+
+      <Confirmation
+        isOpen={showMinPersonConfirm}
+        onClose={() => setShowMinPersonConfirm(false)}
+        onConfirm={() => {
+          if (pendingMinPersonValue !== null) {
+            updateMinimumPerson(
+              pkg.id,
+              pkg.type,
+              pkg.startTime,
+              pendingMinPersonValue,
+            );
+          }
+          setShowMinPersonConfirm(false);
+        }}
+        title="Update Minimum Person"
+        message={
+          <div>
+            <p>
+              Are you sure you want to change the minimum person requirement for{" "}
+              <span className="font-semibold">
+                {formatTimeDisplay(pkg.startTime)}
+              </span>{" "}
+              slot of <span className="font-semibold">"{pkg.title}"</span> from{" "}
+              <span className="font-bold">{pkg.minimumPerson}</span> to{" "}
+              <span className="font-bold text-primary">
+                {pendingMinPersonValue}
+              </span>
+              ?
+            </p>
+          </div>
+        }
+        confirmText="Update"
+        cancelText="Cancel"
+        variant="default"
+      />
+
+      {/* Edit Minimum Person Popup Window */}
+      {showEditMinPersonModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl border border-gray-100 max-w-sm w-full p-5 scale-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-dark mb-2">
+              Edit Minimum Person
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Set the minimum number of persons required for the{" "}
+              <span className="font-semibold">
+                {formatTimeDisplay(pkg.startTime)}
+              </span>{" "}
+              slot of <span className="font-semibold">"{pkg.title}"</span>.
+            </p>
+
+            <div className="flex flex-col gap-1 mb-5">
+              <label className="text-xs font-semibold text-gray-600">
+                Minimum Person Count
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={editingMinPersonValue}
+                onChange={(e) => setEditingMinPersonValue(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg font-bold text-center focus:ring-2 focus:ring-primary focus:border-primary text-dark"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const val = parseInt(editingMinPersonValue, 10);
+                  if (isNaN(val) || val < 1) {
+                    toast.error("Minimum person must be at least 1");
+                    return;
+                  }
+                  if (val === pkg.minimumPerson) {
+                    setShowEditMinPersonModal(false);
+                    return;
+                  }
+                  setPendingMinPersonValue(val);
+                  setShowMinPersonConfirm(true);
+                  setShowEditMinPersonModal(false);
+                }}
+                className="flex-1 py-2 bg-primary text-white hover:bg-primary-dark rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
+              >
+                <FiSave size={15} />
+                <span>Save</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingMinPersonValue(pkg.minimumPerson.toString());
+                  setShowEditMinPersonModal(false);
+                }}
+                className="flex-1 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
+              >
+                <FiX size={15} />
+                <span>Cancel</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
