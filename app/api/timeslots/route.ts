@@ -7,20 +7,61 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get("date");
     const packageType = searchParams.get("packageType");
 
-    if (!packageId || !date || !packageType) {
+    if (!date) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing required parameters: packageId, date, packageType",
+          error: "Missing required parameter: date",
         },
         { status: 400 }
       );
     }
 
-    // Call the backend API to get time slot availability
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://192.168.163.50:3002";
+
+    // Bulk query for all packages on a specific date
+    if (!packageId) {
+      const response = await fetch(
+        `${backendUrl}/api/timeslots/all-by-date?date=${date}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return NextResponse.json(
+          {
+            success: false,
+            error: errorData.message || "Failed to fetch all time slots for date",
+          },
+          { status: response.status }
+        );
+      }
+
+      const data = await response.json();
+      return NextResponse.json({
+        success: true,
+        data: Array.isArray(data.data) ? data.data : [],
+      });
+    }
+
+    if (!packageType) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing packageType parameter",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Call the backend API to get time slot availability (pass isAdmin=true)
     const response = await fetch(
-      `${backendUrl}/api/timeslots/available?packageId=${packageId}&date=${date}&packageType=${packageType}`,
+      `${backendUrl}/api/timeslots/available?packageId=${packageId}&date=${date}&packageType=${packageType}&isAdmin=true`,
       {
         method: "GET",
         headers: {
